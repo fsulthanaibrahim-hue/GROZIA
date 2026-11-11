@@ -30,3 +30,30 @@ My original draft had six separate agents. I have converted them into tools (sal
 - **A:** No, there is one agent that uses eight tools.
 - **Q:** Can the app run without the AI?
 - **A:** Yes, `AGENT_ENABLED` will default to false, and all screens will work normally.
+
+---
+
+## Day 7: Essentialism Reflection
+
+**Hardest idea to cut:** Task Management (the Employee role and task module). It felt like a "cool feature" but the module correctly pointed out it's out of scope and not allowed.
+
+**Why the smaller project tells a stronger story:** By cutting six agents, five roles, and task management, GROZIA became a focused product: **one agent, three jobs, eight tools, three roles.** Every screen has a purpose. Every agent tool answers a real question. Scope discipline is what makes a portfolio project feel real, not full of "almost done" features.
+
+---
+
+## Week 1 Complete (v0.1)
+
+By end of Week 1, the following is complete:
+- ✅ PROPOSAL.md with 3 roles, 12+ stories, 3 agent jobs, 8 tools, MoSCoW, data plan, and track
+- ✅ No task management, no separate agents — one agent uses tools
+- ✅ Review notes with reviewer answers
+- ✅ ER diagram, shop rules, tool catalog, 5 ADRs, architecture diagram
+- ✅ Three spikes with results (tool calling, retrieval hit@3 = 10/10, streaming)
+- ✅ Every core service healthy with one command
+- ✅ Login, three roles, audit log, role tests (all 3 roles verified)
+- ✅ Seed with planted story (2 bestsellers out of stock, availability complaints spiked)
+- ✅ CI workflow added
+- ✅ Basic CRUD endpoints for products, suppliers, customers
+- ✅ v0.1 tagged
+- ✅ Can explain every file
+

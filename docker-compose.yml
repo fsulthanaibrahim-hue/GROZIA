@@ -1,0 +1,42 @@
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./infra/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./apps/web:/usr/share/nginx/html:ro
+    depends_on:
+      - api
+
+  api:
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile
+    environment:
+      - AGENT_ENABLED=false
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles: ["core", "ai"]
+
+  db:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: shopops
+      POSTGRES_PASSWORD: shopops_password
+      POSTGRES_DB: grozia
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shopops -d grozia"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    profiles: ["core"]
+
+  actions:
+    build:
+      context: ./services/actions
+      dockerfile: Dockerfile
+    profiles: ["core", "actions"]
