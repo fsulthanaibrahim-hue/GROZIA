@@ -44,7 +44,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           GROZIA
         </div>
         <nav className="flex-1 p-4 space-y-2">
-          {/* Using <a> instead of Link for full page reloads (fixes cookie issue) */}
+          {/* ⚠️ Notice these are <a> tags, NOT <Link> */}
           <a href="/" className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
             <LayoutDashboard size={20} /> Dashboard
           </a>

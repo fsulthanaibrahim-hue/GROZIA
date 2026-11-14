@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Response
+from fastapi import FastAPI, Depends, HTTPException, Response, Request
 from sqlalchemy.orm import Session
 from database import engine, SessionLocal, get_db
 import models
@@ -170,3 +170,16 @@ def create_complaint(complaint: ComplaintCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_complaint)
     return {"id": new_complaint.id, "message": "Complaint logged"}
+
+
+# --- ME (Get current user info from the cookie) ---
+@app.get("/api/me")
+def get_me(request: Request):
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return {"email": payload.get("sub"), "role": payload.get("role")}
+    except:
+        raise HTTPException(status_code=401, detail="Invalid token")
