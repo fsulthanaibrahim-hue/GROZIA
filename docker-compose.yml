@@ -33,11 +33,13 @@ services:
   db:
     image: postgres:15-alpine
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_USER: shopops
       POSTGRES_PASSWORD: shopops_password
       POSTGRES_DB: grozia
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U shopops -d grozia"]
       interval: 5s
@@ -59,5 +61,11 @@ services:
       - "27017:27017"
     environment:
       MONGO_INITDB_DATABASE: grozia_traces
+    volumes:
+      - mongo_data:/data/db
     profiles: ["core", "ai"]
 
+# --- VOLUMES (Persistent Data) ---
+volumes:
+  postgres_data:
+  mongo_data:

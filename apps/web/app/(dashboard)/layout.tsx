@@ -1,7 +1,42 @@
+'use client';
+
 import { LayoutDashboard, LogOut, Package, Users, MessageSquare, Settings, Bell } from 'lucide-react'
-import Link from 'next/link'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const [userEmail, setUserEmail] = useState('Loading...');
+  const [userRole, setUserRole] = useState('');
+  const router = useRouter();
+
+  useEffect(() => {
+    const cookies = document.cookie.split('; ');
+    const tokenCookie = cookies.find(row => row.startsWith('access_token='));
+
+    if (tokenCookie) {
+      try {
+        const token = tokenCookie.split('=')[1];
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        setUserEmail(payload.sub || 'User');
+        setUserRole(payload.role || 'User');
+      } catch (e) {
+        console.error("Failed to decode token", e);
+        router.push('/login');
+      }
+    } else {
+      router.push('/login');
+    }
+  }, [router]);
+
+  const handleLogout = () => {
+    document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    router.push('/login');
+  };
+
+  const canSeeInventory = userRole === 'Owner' || userRole === 'Store Manager';
+  const canSeeCustomers = userRole === 'Owner' || userRole === 'Accountant';
+  const canSeeComplaints = userRole === 'Owner' || userRole === 'Store Manager';
+
   return (
     <div className="flex h-screen bg-slate-50">
       <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col print:hidden">
@@ -9,26 +44,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           GROZIA
         </div>
         <nav className="flex-1 p-4 space-y-2">
-          <Link href="/" className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
+          {/* Using <a> instead of Link for full page reloads (fixes cookie issue) */}
+          <a href="/" className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
             <LayoutDashboard size={20} /> Dashboard
-          </Link>
-          <Link href="/products" className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
-            <Package size={20} /> Inventory
-          </Link>
-          <Link href="/customers" className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
-            <Users size={20} /> Customers
-          </Link>
-          <Link href="/complaints" className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
-            <MessageSquare size={20} /> Complaints
-          </Link>
-          <Link href="/settings" className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
+          </a>
+          
+          {canSeeInventory && (
+            <a href="/products" className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
+              <Package size={20} /> Inventory
+            </a>
+          )}
+          
+          {canSeeCustomers && (
+            <a href="/customers" className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
+              <Users size={20} /> Customers
+            </a>
+          )}
+          
+          {canSeeComplaints && (
+            <a href="/complaints" className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
+              <MessageSquare size={20} /> Complaints
+            </a>
+          )}
+          
+          <a href="/settings" className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
             <Settings size={20} /> Settings
-          </Link>
+          </a>
         </nav>
         <div className="p-4 border-t border-slate-800">
-          <Link href="/login" className="flex items-center gap-3 p-3 rounded-lg hover:bg-red-500/10 hover:text-red-400 transition-colors">
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-red-500/10 hover:text-red-400 transition-colors">
             <LogOut size={20} /> Logout
-          </Link>
+          </button>
         </div>
       </aside>
 
@@ -38,8 +84,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="flex items-center gap-6">
             <button className="text-slate-500 hover:text-slate-900"><Bell size={20} /></button>
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-bold text-sm">O</div>
-              <span className="text-sm font-medium text-slate-700">owner@grozia.com</span>
+              <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-bold text-sm">
+                {userEmail.charAt(0).toUpperCase()}
+              </div>
+              <span className="text-sm font-medium text-slate-700">{userEmail}</span>
+              <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-semibold">{userRole}</span>
             </div>
           </div>
         </header>

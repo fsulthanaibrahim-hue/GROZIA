@@ -10,3 +10,4 @@
 | 2026-11-10 | ChatGPT | Helped debug bcrypt/driver issues and build JWT login | Tested all 3 roles and verified audit log |
 | 2026-11-11 | ChatGPT | Helped debug seed script and fix the planted story | Ran seed, verified 0 sales for bestsellers and 19 availability complaints |
 | 2026-11-11 | ChatGPT | Helped add CRUD endpoints and CI workflow | Tested GET/POST for products, suppliers, customers |
+| 2026-11-14 | ChatGPT | Helped with Docker volumes, role-based UI, and persistence debugging | Tested all 3 roles and verified data persistence |

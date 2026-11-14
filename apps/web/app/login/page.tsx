@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
@@ -9,8 +10,10 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
+    // Clear any old cookie when the login page loads
     document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
   }, []);
 
@@ -27,6 +30,8 @@ export default function Login() {
       });
 
       if (!res.ok) throw new Error('Invalid credentials');
+      
+      // Force a full reload to ensure the cookie is sent
       window.location.href = '/';
     } catch {
       setError('Email or password is incorrect.');
@@ -53,7 +58,11 @@ export default function Login() {
           <h1 className="text-3xl font-semibold tracking-tight">Sign in</h1>
           <p className="mt-2 text-base text-slate-600">Use your shop account.</p>
 
-          {error && <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
+          {error && (
+            <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleLogin} className="mt-8 space-y-5">
             <div>
@@ -63,7 +72,7 @@ export default function Login() {
                 value={email}
                 placeholder="owner@grozia.com"
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 focus:border-teal-700 focus:outline focus:outline-2 focus:outline-teal-700"
+                className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-base focus:border-teal-700 focus:outline focus:outline-2 focus:outline-teal-700"
                 required
               />
             </div>
@@ -75,7 +84,7 @@ export default function Login() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 pr-12 text-base text-slate-900 placeholder:text-slate-400 focus:border-teal-700 focus:outline focus:outline-2 focus:outline-teal-700"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 pr-12 text-base focus:border-teal-700 focus:outline focus:outline-2 focus:outline-teal-700"
                   required
                 />
                 <button
@@ -91,7 +100,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full rounded-lg bg-[#14211F] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#1f332f] disabled:cursor-not-allowed disabled:opacity-60"
+              className="w-full rounded-lg bg-[#14211F] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#1f332f] disabled:opacity-60"
             >
               {isLoading ? 'Signing in…' : 'Sign in'}
             </button>
