@@ -6,19 +6,39 @@ import bcrypt
 from jose import jwt
 from datetime import datetime, timedelta
 from schemas import ProductCreate, SupplierCreate, CustomerCreate
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
+# --- CORS ---
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost", "http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # --- JWT SETTINGS ---
 SECRET_KEY = "my_super_secret_key_grozia"
 ALGORITHM = "HS256"
 
+# --- PYDANTIC MODELS ---
+class ComplaintCreate(BaseModel):
+    customer_name: str
+    description: str
+    category: str
+    product_id: int | None = None  # Made optional
+
+# --- HELPERS ---
 def write_audit(db: Session, user_email: str, action: str, details: str = ""):
     log = models.AuditLog(user_email=user_email, action=action, details=details)
     db.add(log)
 
+# --- HEALTH & SEED ---
 @app.get("/api/health")
 def health_check():
     return {"status": "healthy", "agent_enabled": False}
@@ -40,6 +60,7 @@ def seed_users(db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Seeded Owner, Store Manager, and Accountant successfully!"}
 
+# --- AUTH ---
 @app.post("/api/login")
 def login(response: Response, email: str, password: str, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == email).first()
@@ -58,13 +79,20 @@ def login(response: Response, email: str, password: str, db: Session = Depends(g
     write_audit(db, user.email, "LOGIN", f"Role: {user.role}")
     db.commit()
 
-    response.set_cookie(key="access_token", value=token, httponly=True, samesite="lax")
+    response.set_cookie(
+        key="access_token", 
+        value=token, 
+        httponly=True, 
+        samesite="lax", 
+        secure=False, 
+        path="/"
+    )
     return {"message": f"Welcome {user.role}!", "role": user.role}
 
 # --- PRODUCTS ---
 @app.get("/api/products")
 def list_products(db: Session = Depends(get_db)):
-    products = db.query(models.Product).limit(50).all()
+    products = db.query(models.Product).order_by(models.Product.id.desc()).limit(100).all()
     return [{"id": p.id, "name": p.name, "category": p.category, "price": float(p.price)} for p in products]
 
 @app.post("/api/products")
@@ -81,6 +109,7 @@ def create_product(product: ProductCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(p)
     return {"id": p.id, "message": "Product created"}
+
 
 # --- SUPPLIERS ---
 @app.get("/api/suppliers")
@@ -112,3 +141,32 @@ def create_customer(customer: CustomerCreate, db: Session = Depends(get_db)):
     db.refresh(c)
     return {"id": c.id, "message": "Customer created"}
 
+# --- COMPLAINTS ---
+@app.get("/api/complaints")
+def list_complaints(db: Session = Depends(get_db)):
+    complaints = db.query(models.Complaint).order_by(models.Complaint.id.desc()).all()
+    return [
+        {
+            "id": c.id,
+            "customer": c.customer_name,
+            "issue": c.description,
+            "category": c.category,
+            "status": c.status,
+        }
+        for c in complaints
+    ]
+
+@app.post("/api/complaints")
+def create_complaint(complaint: ComplaintCreate, db: Session = Depends(get_db)):
+    new_complaint = models.Complaint(
+        customer_name=complaint.customer_name,
+        description=complaint.description,
+        category=complaint.category,
+        product_id=None, # Optional - no product attached
+        status="open",
+    )
+    db.add(new_complaint)
+    write_audit(db, "api", "CREATE_COMPLAINT", f"Complaint: {complaint.description}")
+    db.commit()
+    db.refresh(new_complaint)
+    return {"id": new_complaint.id, "message": "Complaint logged"}

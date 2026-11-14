@@ -1,12 +1,13 @@
 from pydantic import BaseModel
 from decimal import Decimal
+from typing import Optional
 
 class ProductCreate(BaseModel):
     name: str
     category: str
     price: Decimal
-    reorder_level: int
-    supplier_id: int
+    reorder_level: int = 10
+    supplier_id: Optional[int] = None   
 
 class SupplierCreate(BaseModel):
     name: str
