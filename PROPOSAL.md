@@ -23,13 +23,55 @@ Our supermarket tracks sales, stock, money, and complaints across notebooks and 
 - **Store Manager:** Manages products, sales, and complaints.
 - **Accountant:** Manages invoices and payments.
 
-## 4. User Stories
-1. As the Owner, I want to log in securely so only staff can see data.
-2. As the Store Manager, I want to record sales so stock updates automatically.
-3. As the Accountant, I want to record invoices so we can track who owes money.
-4. As the Owner, I want a dashboard showing total sales so I know how the shop is doing.
-5. As the Store Manager, I want to log complaints so the AI can help me reply.
-6. As the Owner, I want an Audit Log so I can see who edited what.
+## 4. User Stories (12 to 15)
+1. **Login:** As the Owner, I want to log in securely so only staff can see data.
+   - *Given* a seeded Owner account
+   - *When* I enter valid credentials
+   - *Then* I land on the dashboard.
+2. **Record Sales:** As the Store Manager, I want to record sales so stock updates automatically.
+   - *Given* I have 10 units of a product
+   - *When* I record a sale of 2 units
+   - *Then* the stock becomes 8.
+3. **Record Invoices:** As the Accountant, I want to record invoices so we can track who owes money.
+   - *Given* a credit customer
+   - *When* I create an invoice for ₹5,000
+   - *Then* the customer owes ₹5,000.
+4. **Dashboard:** As the Owner, I want a dashboard showing total sales so I know how the shop is doing.
+   - *Given* sales have been recorded
+   - *When* I open the dashboard
+   - *Then* I see the total sales figure.
+5. **Log Complaints:** As the Store Manager, I want to log complaints so the AI can help me reply.
+   - *Given* a customer has a problem
+   - *When* I log a complaint
+   - *Then* it appears in the unresolved list.
+6. **Audit Log:** As the Owner, I want an Audit Log so I can see who edited what.
+   - *Given* a user makes a change
+   - *When* the change is saved
+   - *Then* a new row appears in the audit log.
+7. **Inventory:** As the Owner, I want to add new products and set a reorder level.
+   - *Given* a new item arrives
+   - *When* I add it with a price and reorder level
+   - *Then* it appears in the catalog.
+8. **Manage Suppliers:** As the Owner, I want to manage supplier details.
+   - *Given* a supplier
+   - *When* I save their contact info
+   - *Then* they are available for purchase orders.
+9. **Manage Customers:** As the Owner, I want to manage credit customers.
+   - *Given* a new customer
+   - *When* I save their credit limit
+   - *Then* they can be invoiced.
+10. **Manage Stock:** As the Store Manager, I want to see current stock levels.
+    - *Given* products exist
+    - *When* I view the inventory
+    - *Then* I see the stock quantity for each.
+11. **Agent Toggle:** As the Owner, I want an `AGENT_ENABLED` switch so the app works without AI.
+    - *Given* the AI is turned off
+    - *When* I use the app
+    - *Then* every screen still works normally.
+12. **Approve Purchase Order:** As the Owner, I want to approve purchase orders before they are sent.
+    - *Given* a draft purchase order
+    - *When* I click approve
+    - *Then* the Flask Action Executor emails it once.
 
 ## 5. The Three Agent Jobs
 1. **Job 1 (Sales Drop):** The AI checks sales, stock, and complaints, then drafts a Purchase Order for the Owner to approve.
@@ -51,3 +93,11 @@ Our supermarket tracks sales, stock, money, and complaints across notebooks and 
 - **Should:** Expenses.
 - **Could:** Monthly reports.
 - **Won't:** Task management, multiple agents.
+
+## 8. Future Eval Cases (Tests for the AI)
+- `eval_job1_completes_sales_drop_with_figures` (Should complete)
+- `eval_job1_refuses_to_guess_cause_without_data` (Should refuse)
+- `eval_job2_completes_overdue_reminders_with_policy_citation` (Should complete)
+- `eval_job2_refuses_gst_advice` (Should refuse)
+- `eval_job3_completes_refund_only_where_policy_allows` (Should complete)
+- `eval_job3_refuses_refund_outside_return_window` (Should refuse)
