@@ -1,101 +1,142 @@
 'use client';
 
-import { LayoutDashboard, LogOut, Package, Users, MessageSquare, Settings, Bell } from 'lucide-react'
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { LayoutDashboard, LogOut, Package, Users, MessageSquare, Settings, Bell } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import Link from 'next/link';
+
+const FOCUS_LIGHT = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F2B705]';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [userEmail, setUserEmail] = useState('Loading...');
+  const [userEmail, setUserEmail] = useState('');
   const [userRole, setUserRole] = useState('');
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
-    const cookies = document.cookie.split('; ');
-    const tokenCookie = cookies.find(row => row.startsWith('access_token='));
-
-    if (tokenCookie) {
-      try {
-        const token = tokenCookie.split('=')[1];
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        setUserEmail(payload.sub || 'User');
-        setUserRole(payload.role || 'User');
-      } catch (e) {
-        console.error("Failed to decode token", e);
-        router.push('/login');
+    const init = async () => {
+      const res = await fetch('/api/me');
+      if (res.status === 401) {
+        window.location.href = '/home';
+        return;
       }
-    } else {
-      router.push('/login');
-    }
-  }, [router]);
+      const data = await res.json();
+      setUserEmail(data.email);
+      setUserRole(data.role);
+      setLoading(false);
+    };
+    init();
+  }, []);
 
   const handleLogout = () => {
     document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    router.push('/login');
+    window.location.href = '/home';
   };
 
   const canSeeInventory = userRole === 'Owner' || userRole === 'Store Manager';
   const canSeeCustomers = userRole === 'Owner' || userRole === 'Accountant';
   const canSeeComplaints = userRole === 'Owner' || userRole === 'Store Manager';
 
+  const links = [
+    { href: '/', label: 'Dashboard', icon: LayoutDashboard, show: true },
+    { href: '/products', label: 'Inventory', icon: Package, show: canSeeInventory },
+    { href: '/customers', label: 'Customers', icon: Users, show: canSeeCustomers },
+    { href: '/complaints', label: 'Complaints', icon: MessageSquare, show: canSeeComplaints },
+    { href: '/settings', label: 'Settings', icon: Settings, show: true },
+  ].filter(l => l.show);
+
+  const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname?.startsWith(href));
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#EAEFE7] text-[#17261F]">
+        <p className="text-lg font-medium">Loading...</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex h-screen bg-slate-50">
-      <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col print:hidden">
-        <div className="p-6 text-2xl font-bold text-white tracking-widest border-b border-slate-800">
-          GROZIA
+    <div
+      className="flex h-screen bg-[#EAEFE7] text-[#17261F]"
+      style={{ fontFamily: "'Figtree', system-ui, sans-serif" }}
+    >
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600&display=swap');
+        .font-display { font-family: 'Bricolage Grotesque', 'Figtree', system-ui, sans-serif; }
+      `}</style>
+
+      <aside className="flex w-16 shrink-0 flex-col bg-[#17261F] text-[#EAEFE7]/75 md:w-60 print:hidden">
+        <div className="font-display flex h-16 items-center justify-center border-b border-white/10 text-2xl font-extrabold text-[#EAEFE7] md:justify-start md:px-6">
+          <span className="md:hidden">G</span>
+          <span className="hidden md:inline">Grozia</span>
         </div>
-        <nav className="flex-1 p-4 space-y-2">
-          {/* ⚠️ Notice these are <a> tags, NOT <Link> */}
-          <a href="/" className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
-            <LayoutDashboard size={20} /> Dashboard
-          </a>
-          
-          {canSeeInventory && (
-            <a href="/products" className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
-              <Package size={20} /> Inventory
-            </a>
-          )}
-          
-          {canSeeCustomers && (
-            <a href="/customers" className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
-              <Users size={20} /> Customers
-            </a>
-          )}
-          
-          {canSeeComplaints && (
-            <a href="/complaints" className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
-              <MessageSquare size={20} /> Complaints
-            </a>
-          )}
-          
-          <a href="/settings" className="flex items-center gap-3 p-3 rounded-lg hover:bg-slate-800 hover:text-white transition-colors">
-            <Settings size={20} /> Settings
-          </a>
+
+        <nav aria-label="Main" className="flex-1 space-y-1 p-2 md:p-3">
+          {links.map(({ href, label, icon: Icon }) => {
+            const active = isActive(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                title={label}
+                aria-current={active ? 'page' : undefined}
+                className={`flex items-center justify-center gap-3 rounded-md border-l-4 py-2.5 transition-colors md:justify-start md:px-3 ${FOCUS_LIGHT} ${
+                  active
+                    ? 'border-[#F2B705] bg-white/10 font-semibold text-[#EAEFE7]'
+                    : 'border-transparent hover:bg-white/5 hover:text-[#EAEFE7]'
+                }`}
+              >
+                <Icon size={20} />
+                <span className="hidden md:inline">{label}</span>
+              </Link>
+            );
+          })}
         </nav>
-        <div className="p-4 border-t border-slate-800">
-          <button onClick={handleLogout} className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-red-500/10 hover:text-red-400 transition-colors">
-            <LogOut size={20} /> Logout
+
+        <div className="border-t border-white/10 p-2 md:p-3">
+          <button
+            onClick={handleLogout}
+            title="Log out"
+            className={`flex w-full items-center justify-center gap-3 rounded-md border-l-4 border-transparent py-2.5 transition-colors hover:bg-white/5 hover:text-[#FF9C8A] md:justify-start md:px-3 ${FOCUS_LIGHT}`}
+          >
+            <LogOut size={20} />
+            <span className="hidden md:inline">Log out</span>
           </button>
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col">
-        <header className="bg-white border-b border-slate-200 h-16 flex items-center justify-between px-8 print:hidden">
-          <div className="text-slate-500 font-medium">ShopOps Copilot</div>
-          <div className="flex items-center gap-6">
-            <button className="text-slate-500 hover:text-slate-900"><Bell size={20} /></button>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-[#17261F]/15 bg-white px-4 sm:px-8 print:hidden">
+          <div className="font-display text-lg font-semibold">ShopOps Copilot</div>
+          <div className="flex items-center gap-4 sm:gap-6">
+            <button
+              aria-label="Notifications"
+              className="rounded p-1 text-[#17261F]/55 hover:text-[#17261F] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#17261F]"
+            >
+              <Bell size={20} />
+            </button>
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-bold text-sm">
-                {userEmail.charAt(0).toUpperCase()}
+              <div
+                aria-hidden="true"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-[#17261F] text-sm font-bold text-[#EAEFE7]"
+              >
+                {userEmail ? userEmail.charAt(0).toUpperCase() : 'U'}
               </div>
-              <span className="text-sm font-medium text-slate-700">{userEmail}</span>
-              <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-xs font-semibold">{userRole}</span>
+              <span className="hidden max-w-[14rem] truncate text-sm font-medium sm:inline">
+                {userEmail}
+              </span>
+              {userRole && (
+                <span className="rounded bg-[#F2B705]/30 px-2 py-0.5 text-xs font-semibold text-[#5C4500]">
+                  {userRole}
+                </span>
+              )}
             </div>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-8">
-          {children}
-        </main>
+
+        <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
-  )
+  );
 }

@@ -1,25 +1,41 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Package, Search, Plus, X } from 'lucide-react';
 
+const CATEGORY_STYLES: Record<string, string> = {
+  Dairy: 'bg-sky-100 text-sky-900',
+  Bakery: 'bg-orange-100 text-orange-900',
+  Beverages: 'bg-teal-100 text-teal-900',
+  Snacks: 'bg-rose-100 text-rose-900',
+  Produce: 'bg-lime-100 text-lime-900',
+};
+
+const FOCUS = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#17261F]';
+
 export default function ProductsPage() {
   const router = useRouter();
-  const [products, setProducts] = useState([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  
+  const [query, setQuery] = useState('');
+
   const [name, setName] = useState('');
   const [category, setCategory] = useState('Dairy');
   const [price, setPrice] = useState('');
 
   useEffect(() => {
-    if (!document.cookie.includes('access_token=')) {
-      router.push('/login');
-      return;
-    }
-    fetchProducts();
+    const init = async () => {
+      // ✅ Use /api/me to check authentication (server reads the httpOnly cookie)
+      const me = await fetch('/api/me');
+      if (me.status === 401) {
+        router.push('/home');
+        return;
+      }
+      await fetchProducts();
+    };
+    init();
   }, [router]);
 
   const fetchProducts = async () => {
@@ -50,76 +66,193 @@ export default function ProductsPage() {
     } catch (error) { console.error(error); } finally { setIsLoading(false); }
   };
 
-  return (
-    <div className="max-w-6xl mx-auto">
-      <header className="mb-8 flex justify-between items-end">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-2">
-            <Package className="text-slate-400" /> Inventory
-          </h1>
-          <p className="text-slate-500 mt-1">Manage your shop's products.</p>
-        </div>
-        <button onClick={() => setIsModalOpen(true)} className="bg-slate-900 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2">
-          <Plus size={18} /> Add Product
-        </button>
-      </header>
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter((p: any) =>
+      `${p.name} ${p.category}`.toLowerCase().includes(q)
+    );
+  }, [products, query]);
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
-          <Search size={18} className="text-slate-400" />
-          <input type="text" placeholder="Search products..." className="bg-transparent border-none outline-none w-full text-sm" />
+  return (
+    <div
+      className="min-h-screen bg-[#EAEFE7] px-4 py-8 text-[#17261F] sm:px-8 sm:py-12"
+      style={{ fontFamily: "'Figtree', system-ui, sans-serif" }}
+    >
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600&display=swap');
+        .font-display { font-family: 'Bricolage Grotesque', 'Figtree', system-ui, sans-serif; }
+        @keyframes modal-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+        .modal-in { animation: modal-in 160ms ease-out; }
+        @media (prefers-reduced-motion: reduce) { .modal-in { animation: none; } }
+      `}</style>
+
+      <div className="mx-auto max-w-5xl">
+        <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="font-display flex items-center gap-3 text-4xl font-extrabold tracking-tight sm:text-5xl">
+              <Package className="h-9 w-9 text-[#17261F]/40" strokeWidth={1.75} />
+              Inventory
+            </h1>
+            <p className="mt-2 text-[#17261F]/65">
+              {products.length === 0
+                ? 'Products you add will be listed here.'
+                : `${products.length} ${products.length === 1 ? 'product' : 'products'} in your shop`}
+            </p>
+          </div>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className={`flex items-center gap-2 rounded-md bg-[#17261F] px-5 py-2.5 font-semibold text-[#EAEFE7] transition-colors hover:bg-[#25392F] ${FOCUS}`}
+          >
+            <Plus size={18} strokeWidth={2.5} /> Add product
+          </button>
+        </header>
+
+        <div className="overflow-hidden rounded-lg border border-[#17261F]/15 bg-white">
+          <label className="flex items-center gap-3 border-b border-[#17261F]/15 px-4 py-3 focus-within:bg-[#F6F9F4]">
+            <Search size={18} className="text-[#17261F]/45" />
+            <span className="sr-only">Search products</span>
+            <input
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search by name or category"
+              className="w-full bg-transparent text-sm outline-none placeholder:text-[#17261F]/45"
+            />
+          </label>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[480px] text-left">
+              <thead>
+                <tr className="border-b border-[#17261F]/15 text-sm text-[#17261F]/60">
+                  <th className="hidden w-20 px-4 py-3 font-medium sm:table-cell">ID</th>
+                  <th className="px-4 py-3 font-medium">Product</th>
+                  <th className="px-4 py-3 font-medium">Category</th>
+                  <th className="px-4 py-3 text-right font-medium">Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((p: any) => (
+                  <tr key={p.id} className="border-b border-[#17261F]/10 last:border-b-0 hover:bg-[#F6F9F4]">
+                    <td className="hidden px-4 py-3.5 text-sm tabular-nums text-[#17261F]/45 sm:table-cell">
+                      #{p.id.toString().padStart(3, '0')}
+                    </td>
+                    <td className="px-4 py-3.5 font-semibold">{p.name}</td>
+                    <td className="px-4 py-3.5">
+                      <span
+                        className={`rounded px-2.5 py-1 text-xs font-semibold ${
+                          CATEGORY_STYLES[p.category] ?? 'bg-slate-100 text-slate-800'
+                        }`}
+                      >
+                        {p.category}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="font-display inline-block bg-[#F2B705] py-1 pl-4 pr-3 text-base font-extrabold tabular-nums [clip-path:polygon(10px_0,100%_0,100%_100%,10px_100%,0_50%)]">
+                        ₹{Number(p.price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {visible.length === 0 && (
+            <div className="px-4 py-14 text-center">
+              {products.length === 0 ? (
+                <>
+                  <p className="font-display text-xl font-semibold">No products yet</p>
+                  <p className="mt-1 text-sm text-[#17261F]/60">Add your first product to start your inventory.</p>
+                  <button
+                    onClick={() => setIsModalOpen(true)}
+                    className={`mt-5 rounded-md bg-[#17261F] px-4 py-2 text-sm font-semibold text-[#EAEFE7] ${FOCUS}`}
+                  >
+                    Add product
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="font-display text-xl font-semibold">Nothing matches "{query}"</p>
+                  <p className="mt-1 text-sm text-[#17261F]/60">Try a different name or category.</p>
+                </>
+              )}
+            </div>
+          )}
         </div>
-        <table className="w-full text-left">
-          <thead>
-            <tr className="bg-white border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider">
-              <th className="p-4 font-semibold">ID</th>
-              <th className="p-4 font-semibold">Product Name</th>
-              <th className="p-4 font-semibold">Category</th>
-              <th className="p-4 font-semibold">Price</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((p: any) => (
-              <tr key={p.id} className="border-b border-slate-100 hover:bg-slate-50">
-                <td className="p-4 text-sm text-slate-400">#{p.id.toString().padStart(3, '0')}</td>
-                <td className="p-4 font-medium text-slate-800">{p.name}</td>
-                <td className="p-4"><span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full text-xs font-medium">{p.category}</span></td>
-                <td className="p-4 text-slate-800 font-semibold">₹{p.price}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="flex justify-between items-center p-6 border-b border-slate-200">
-              <h2 className="text-xl font-bold">Add New Product</h2>
-              <button onClick={() => setIsModalOpen(false)}><X size={24} /></button>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#17261F]/55 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="add-product-title"
+        >
+          <div className="modal-in w-full max-w-md overflow-hidden rounded-lg bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#17261F]/15 px-6 py-5">
+              <h2 id="add-product-title" className="font-display text-2xl font-extrabold">
+                Add product
+              </h2>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                aria-label="Close"
+                className={`rounded p-1 text-[#17261F]/60 hover:bg-[#EAEFE7] hover:text-[#17261F] ${FOCUS}`}
+              >
+                <X size={22} />
+              </button>
             </div>
-            <form onSubmit={handleAddProduct} className="p-6 space-y-4">
+
+            <form onSubmit={handleAddProduct} className="space-y-5 p-6">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Product Name</label>
-                <input required type="text" value={name} onChange={e => setName(e.target.value)} className="w-full px-4 py-2 border rounded-lg" />
+                <label htmlFor="p-name" className="mb-1.5 block text-sm font-semibold">Product name</label>
+                <input
+                  id="p-name"
+                  required
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  className="w-full rounded-md border border-[#17261F]/25 px-3.5 py-2.5 outline-none focus:border-[#17261F] focus:ring-2 focus:ring-[#F2B705]"
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
-                <select value={category} onChange={e => setCategory(e.target.value)} className="w-full px-4 py-2 border rounded-lg">
-                  <option>Dairy</option><option>Bakery</option><option>Beverages</option><option>Snacks</option><option>Produce</option>
+                <label htmlFor="p-cat" className="mb-1.5 block text-sm font-semibold">Category</label>
+                <select
+                  id="p-cat"
+                  value={category}
+                  onChange={e => setCategory(e.target.value)}
+                  className="w-full rounded-md border border-[#17261F]/25 bg-white px-3.5 py-2.5 outline-none focus:border-[#17261F] focus:ring-2 focus:ring-[#F2B705]"
+                >
+                  <option>Dairy</option>
+                  <option>Bakery</option>
+                  <option>Beverages</option>
+                  <option>Snacks</option>
+                  <option>Produce</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Price (₹)</label>
-                <input required type="number" step="0.01" value={price} onChange={e => setPrice(e.target.value)} className="w-full px-4 py-2 border rounded-lg" />
+                <label htmlFor="p-price" className="mb-1.5 block text-sm font-semibold">Price (₹)</label>
+                <input
+                  id="p-price"
+                  required
+                  type="number"
+                  step="0.01"
+                  value={price}
+                  onChange={e => setPrice(e.target.value)}
+                  className="w-full rounded-md border border-[#17261F]/25 px-3.5 py-2.5 tabular-nums outline-none focus:border-[#17261F] focus:ring-2 focus:ring-[#F2B705]"
+                />
               </div>
-              <button disabled={isLoading} type="submit" className="w-full bg-slate-900 text-white font-bold py-3 rounded-lg">
-                {isLoading ? 'Saving...' : 'Save Product'}
+              <button
+                disabled={isLoading}
+                type="submit"
+                className={`w-full rounded-md bg-[#17261F] py-3 font-semibold text-[#EAEFE7] transition-colors hover:bg-[#25392F] disabled:opacity-60 ${FOCUS}`}
+              >
+                {isLoading ? 'Saving…' : 'Save product'}
               </button>
             </form>
           </div>
         </div>
       )}
     </div>
-  )
+  );
 }
