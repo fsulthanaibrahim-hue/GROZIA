@@ -1,30 +1,138 @@
-# GROZIA Database Design
+# GROZIA — Database Design & ER Diagram
 
-## Part 1: Tables and Columns (ER Diagram)
-*(Every table has a `shop_id` so data is separated by shop).*
+> **Multi-tenancy rule:** Every table carries a `shop_id` (directly or via FK chain) so data is isolated per shop.
 
-- **users:** `id`, `email`, `password`, `role` (Owner, Store Manager, Accountant)
-- **shops:** `id`, `name`, `address`
-- **categories:** `id`, `shop_id`, `name`
-- **products:** `id`, `shop_id`, `category_id`, `name`, `price`, `reorder_level`
-- **suppliers:** `id`, `shop_id`, `name`, `contact_email`
-- **customers:** `id`, `shop_id`, `name`, `credit_limit`
-- **sales:** `id`, `shop_id`, `total_amount`, `created_at`
-- **sale_lines:** `id`, `sale_id`, `product_id`, `quantity`, `price_at_sale`
-- **daily_stock:** `id`, `product_id`, `date`, `closing_stock`
-- **invoices:** `id`, `shop_id`, `customer_id`, `amount`, `due_date`, `status`
-- **payments:** `id`, `invoice_id`, `amount_paid`, `paid_at`
-- **complaints:** `id`, `shop_id`, `customer_id`, `product_id`, `category`, `status`
-- **documents & chunks:** `id`, `shop_id`, `content`, `vector_embedding`
-- **audit_log:** `id`, `user_id`, `action`, `created_at`
+---
 
-## Part 2: Shop Rules (Toolkit F)
-These are the strict rules for the code:
-1. **Exact Money:** Store money as `Decimal` with 2 decimal places, never a float.
-2. **Stock:** One closing-stock row per product per day. Out of stock = closing stock is 0.
-3. **Transactions:** Save a sale and its stock change in one transaction (so stock never goes negative).
-4. **Overdue:** Calculate days overdue from the due date and payments. Never store a "days_overdue" number.
-5. **Complaints:** Must have a fixed category (availability, quality, price, service, other) and status (open, replied, resolved).
-6. **Compare Like with Like:** "This week vs last week" means the same 7 days, calculated in code.
-7. **The Seed Story:** Plant a story where two bestsellers run out for 3+ days, causing a rise in complaints.
-8. **Refuse Tax:** The AI must refuse GST/legal questions and point to a chartered accountant.
+## 1. Entity-Relationship Diagram
+
+```mermaid
+erDiagram
+    SHOPS ||--o{ USERS : "employs"
+    SHOPS ||--o{ CATEGORIES : "has"
+    SHOPS ||--o{ SUPPLIERS : "has"
+    SHOPS ||--o{ PRODUCTS : "sells"
+    SHOPS ||--o{ CUSTOMERS : "serves"
+    SHOPS ||--o{ SALES : "records"
+    SHOPS ||--o{ INVOICES : "issues"
+    SHOPS ||--o{ COMPLAINTS : "receives"
+    SHOPS ||--o{ DOCUMENTS : "stores"
+
+    CATEGORIES ||--o{ PRODUCTS : "categorizes"
+    SUPPLIERS ||--o{ PRODUCTS : "supplies"
+
+    CUSTOMERS ||--o{ INVOICES : "owes"
+    CUSTOMERS ||--o{ COMPLAINTS : "files"
+
+    PRODUCTS ||--o{ SALE_LINES : "included_in"
+    PRODUCTS ||--o{ DAILY_STOCK : "tracks"
+    PRODUCTS ||--o{ COMPLAINTS : "regarding"
+
+    SALES ||--|{ SALE_LINES : "contains"
+    INVOICES ||--o{ PAYMENTS : "receives"
+
+    USERS ||--o{ AUDIT_LOG : "performs"
+
+    SHOPS {
+        int id PK
+        string name
+        text address
+    }
+
+    USERS {
+        int id PK
+        int shop_id FK
+        string email UK
+        string password_hash
+        string role "Owner | Store Manager | Accountant"
+    }
+
+    CATEGORIES {
+        int id PK
+        int shop_id FK
+        string name
+    }
+
+    SUPPLIERS {
+        int id PK
+        int shop_id FK
+        string name
+        string contact_email
+    }
+
+    PRODUCTS {
+        int id PK
+        int shop_id FK
+        int category_id FK
+        string name
+        decimal price "DECIMAL(10,2) — Rule 1"
+        int reorder_level
+    }
+
+    CUSTOMERS {
+        int id PK
+        int shop_id FK
+        string name
+        decimal credit_limit "DECIMAL(10,2)"
+    }
+
+    SALES {
+        int id PK
+        int shop_id FK
+        decimal total_amount "DECIMAL(10,2)"
+        datetime created_at
+    }
+
+    SALE_LINES {
+        int id PK
+        int sale_id FK
+        int product_id FK
+        int quantity
+        decimal price_at_sale "DECIMAL(10,2)"
+    }
+
+    DAILY_STOCK {
+        int id PK
+        int product_id FK
+        date date
+        int closing_stock "CHECK >= 0 — Rule 3"
+    }
+
+    INVOICES {
+        int id PK
+        int shop_id FK
+        int customer_id FK
+        decimal amount "DECIMAL(10,2)"
+        date due_date
+        string status
+    }
+
+    PAYMENTS {
+        int id PK
+        int invoice_id FK
+        decimal amount_paid "DECIMAL(10,2)"
+        datetime paid_at
+    }
+
+    COMPLAINTS {
+        int id PK
+        int shop_id FK
+        int customer_id FK
+        int product_id FK
+        string category "availability | quality | price | service | other"
+        string status "open | replied | resolved"
+    }
+
+    DOCUMENTS {
+        int id PK
+        int shop_id FK
+        text content
+        vector vector_embedding "pgvector(1536)"
+    }
+
+    AUDIT_LOG {
+        int id PK
+        int user_id FK
+        string action
+        datetime created_at
+    }
