@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Package, Search, Plus, X, Pencil, Trash2 } from 'lucide-react';
+import { Package, Search, Plus, X } from 'lucide-react';
 
 const CATEGORY_STYLES: Record<string, string> = {
   Dairy: 'bg-sky-100 text-sky-900',
@@ -12,40 +12,22 @@ const CATEGORY_STYLES: Record<string, string> = {
   Produce: 'bg-lime-100 text-lime-900',
 };
 
-const CATEGORIES = ['Dairy', 'Bakery', 'Beverages', 'Snacks', 'Produce'];
-
 const FOCUS = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#17261F]';
-
-type Product = {
-  id: number;
-  name: string;
-  category: string;
-  price: number | string;
-  reorder_level?: number;
-  supplier_id?: number | null;
-};
 
 export default function ProductsPage() {
   const router = useRouter();
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [query, setQuery] = useState('');
 
-  // Which product is being edited? null = "Add" mode
-  const [editingId, setEditingId] = useState<number | null>(null);
-
-  // Delete confirmation state
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-
-  // Form state
   const [name, setName] = useState('');
   const [category, setCategory] = useState('Dairy');
   const [price, setPrice] = useState('');
 
   useEffect(() => {
     const init = async () => {
+      // ✅ Use /api/me to check authentication (server reads the httpOnly cookie)
       const me = await fetch('/api/me');
       if (me.status === 401) {
         router.push('/home');
@@ -60,92 +42,37 @@ export default function ProductsPage() {
     try {
       const res = await fetch('/api/products', { cache: 'no-store' });
       if (res.ok) setProducts(await res.json());
-    } catch (error) {
-      console.error(error);
-    }
+    } catch (error) { console.error(error); }
   };
 
-  // ---- Open modal helpers ----
-  const openAddModal = () => {
-    setEditingId(null);
-    setName('');
-    setCategory('Dairy');
-    setPrice('');
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (p: Product) => {
-    setEditingId(p.id);
-    setName(p.name);
-    setCategory(p.category);
-    setPrice(String(p.price));
-    setIsModalOpen(true);
-  };
-
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingId(null);
-    setName('');
-    setPrice('');
-  };
-
-  // ---- Create / Update ----
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const payload = {
-        name,
-        category,
-        price: parseFloat(price),
-        reorder_level: 10,
-        supplier_id: null,
-      };
-
-      const res = await fetch(
-        editingId ? `/api/products/${editingId}` : '/api/products',
-        {
-          method: editingId ? 'PUT' : 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        }
-      );
-
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name, category, price: parseFloat(price),
+          reorder_level: 10, supplier_id: null
+        }),
+      });
       if (res.ok) {
-        closeModal();
+        setIsModalOpen(false);
+        setName('');
+        setPrice('');
         await fetchProducts();
       }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
+    } catch (error) { console.error(error); } finally { setIsLoading(false); }
   };
 
-  // ---- Delete ----
-  const handleDelete = async (id: number) => {
-    setDeletingId(id);
-    try {
-      const res = await fetch(`/api/products/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        setConfirmDeleteId(null);
-        await fetchProducts();
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setDeletingId(null);
-    }
-  };
-
-  // ---- Search: name + category + id ----
+  // Search logic (kept from the updated version)
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return products;
-    return products.filter((p) => {
-      const haystack = `${p.name} ${p.category} ${p.id}`.toLowerCase();
-      return haystack.includes(q);
-    });
+    return products.filter((p: any) =>
+      `${p.name} ${p.category} ${p.id}`.toLowerCase().includes(q)
+    );
   }, [products, query]);
 
   return (
@@ -175,7 +102,7 @@ export default function ProductsPage() {
             </p>
           </div>
           <button
-            onClick={openAddModal}
+            onClick={() => setIsModalOpen(true)}
             className={`flex items-center gap-2 rounded-md bg-[#17261F] px-5 py-2.5 font-semibold text-[#EAEFE7] transition-colors hover:bg-[#25392F] ${FOCUS}`}
           >
             <Plus size={18} strokeWidth={2.5} /> Add product
@@ -183,7 +110,7 @@ export default function ProductsPage() {
         </header>
 
         <div className="overflow-hidden rounded-lg border border-[#17261F]/15 bg-white">
-          {/* ---- Search bar ---- */}
+          {/* Search Bar */}
           <div className="flex items-center gap-3 border-b border-[#17261F]/15 px-4 py-3 focus-within:bg-[#F6F9F4]">
             <Search size={18} className="text-[#17261F]/45 shrink-0" />
             <label className="sr-only" htmlFor="product-search">
@@ -208,7 +135,7 @@ export default function ProductsPage() {
             )}
           </div>
 
-          {/* Result count when searching */}
+          {/* Result Count */}
           {query && (
             <div className="border-b border-[#17261F]/10 px-4 py-2 text-xs text-[#17261F]/60">
               {visible.length} {visible.length === 1 ? 'result' : 'results'} for "{query}"
@@ -216,24 +143,18 @@ export default function ProductsPage() {
           )}
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-left">
+            <table className="w-full min-w-[480px] text-left">
               <thead>
                 <tr className="border-b border-[#17261F]/15 text-sm text-[#17261F]/60">
                   <th className="hidden w-20 px-4 py-3 font-medium sm:table-cell">ID</th>
                   <th className="px-4 py-3 font-medium">Product</th>
                   <th className="px-4 py-3 font-medium">Category</th>
                   <th className="px-4 py-3 text-right font-medium">Price</th>
-                  <th className="w-24 px-4 py-3 text-right font-medium">
-                    <span className="sr-only">Actions</span>
-                  </th>
                 </tr>
               </thead>
               <tbody>
-                {visible.map((p) => (
-                  <tr
-                    key={p.id}
-                    className="border-b border-[#17261F]/10 last:border-b-0 hover:bg-[#F6F9F4]"
-                  >
+                {visible.map((p: any) => (
+                  <tr key={p.id} className="border-b border-[#17261F]/10 last:border-b-0 hover:bg-[#F6F9F4]">
                     <td className="hidden px-4 py-3.5 text-sm tabular-nums text-[#17261F]/45 sm:table-cell">
                       #{p.id.toString().padStart(3, '0')}
                     </td>
@@ -252,45 +173,6 @@ export default function ProductsPage() {
                         ₹{Number(p.price).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        {confirmDeleteId === p.id ? (
-                          <>
-                            <button
-                              onClick={() => handleDelete(p.id)}
-                              disabled={deletingId === p.id}
-                              className={`rounded bg-rose-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-60 ${FOCUS}`}
-                            >
-                              {deletingId === p.id ? 'Deleting…' : 'Confirm'}
-                            </button>
-                            <button
-                              onClick={() => setConfirmDeleteId(null)}
-                              disabled={deletingId === p.id}
-                              className={`rounded px-2.5 py-1.5 text-xs font-semibold text-[#17261F]/70 hover:bg-[#EAEFE7] ${FOCUS}`}
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => openEditModal(p)}
-                              aria-label={`Edit ${p.name}`}
-                              className={`rounded p-2 text-[#17261F]/60 hover:bg-[#EAEFE7] hover:text-[#17261F] ${FOCUS}`}
-                            >
-                              <Pencil size={16} />
-                            </button>
-                            <button
-                              onClick={() => setConfirmDeleteId(p.id)}
-                              aria-label={`Delete ${p.name}`}
-                              className={`rounded p-2 text-[#17261F]/60 hover:bg-rose-50 hover:text-rose-600 ${FOCUS}`}
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -302,11 +184,9 @@ export default function ProductsPage() {
               {products.length === 0 ? (
                 <>
                   <p className="font-display text-xl font-semibold">No products yet</p>
-                  <p className="mt-1 text-sm text-[#17261F]/60">
-                    Add your first product to start your inventory.
-                  </p>
+                  <p className="mt-1 text-sm text-[#17261F]/60">Add your first product to start your inventory.</p>
                   <button
-                    onClick={openAddModal}
+                    onClick={() => setIsModalOpen(true)}
                     className={`mt-5 rounded-md bg-[#17261F] px-4 py-2 text-sm font-semibold text-[#EAEFE7] ${FOCUS}`}
                   >
                     Add product
@@ -314,12 +194,8 @@ export default function ProductsPage() {
                 </>
               ) : (
                 <>
-                  <p className="font-display text-xl font-semibold">
-                    Nothing matches "{query}"
-                  </p>
-                  <p className="mt-1 text-sm text-[#17261F]/60">
-                    Try a different name, category, or ID.
-                  </p>
+                  <p className="font-display text-xl font-semibold">Nothing matches "{query}"</p>
+                  <p className="mt-1 text-sm text-[#17261F]/60">Try a different name, category, or ID.</p>
                   <button
                     onClick={() => setQuery('')}
                     className={`mt-5 rounded-md border border-[#17261F]/25 px-4 py-2 text-sm font-semibold hover:bg-[#EAEFE7] ${FOCUS}`}
@@ -333,21 +209,21 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* ---- Add / Edit modal ---- */}
+      {/* Add Product Modal */}
       {isModalOpen && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-[#17261F]/55 p-4"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="product-modal-title"
+          aria-labelledby="add-product-title"
         >
           <div className="modal-in w-full max-w-md overflow-hidden rounded-lg bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b border-[#17261F]/15 px-6 py-5">
-              <h2 id="product-modal-title" className="font-display text-2xl font-extrabold">
-                {editingId ? 'Edit product' : 'Add product'}
+              <h2 id="add-product-title" className="font-display text-2xl font-extrabold">
+                Add product
               </h2>
               <button
-                onClick={closeModal}
+                onClick={() => setIsModalOpen(false)}
                 aria-label="Close"
                 className={`rounded p-1 text-[#17261F]/60 hover:bg-[#EAEFE7] hover:text-[#17261F] ${FOCUS}`}
               >
@@ -355,46 +231,42 @@ export default function ProductsPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5 p-6">
+            <form onSubmit={handleAddProduct} className="space-y-5 p-6">
               <div>
-                <label htmlFor="p-name" className="mb-1.5 block text-sm font-semibold">
-                  Product name
-                </label>
+                <label htmlFor="p-name" className="mb-1.5 block text-sm font-semibold">Product name</label>
                 <input
                   id="p-name"
                   required
                   type="text"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={e => setName(e.target.value)}
                   className="w-full rounded-md border border-[#17261F]/25 px-3.5 py-2.5 outline-none focus:border-[#17261F] focus:ring-2 focus:ring-[#F2B705]"
                 />
               </div>
               <div>
-                <label htmlFor="p-cat" className="mb-1.5 block text-sm font-semibold">
-                  Category
-                </label>
+                <label htmlFor="p-cat" className="mb-1.5 block text-sm font-semibold">Category</label>
                 <select
                   id="p-cat"
                   value={category}
-                  onChange={(e) => setCategory(e.target.value)}
+                  onChange={e => setCategory(e.target.value)}
                   className="w-full rounded-md border border-[#17261F]/25 bg-white px-3.5 py-2.5 outline-none focus:border-[#17261F] focus:ring-2 focus:ring-[#F2B705]"
                 >
-                  {CATEGORIES.map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
+                  <option>Dairy</option>
+                  <option>Bakery</option>
+                  <option>Beverages</option>
+                  <option>Snacks</option>
+                  <option>Produce</option>
                 </select>
               </div>
               <div>
-                <label htmlFor="p-price" className="mb-1.5 block text-sm font-semibold">
-                  Price (₹)
-                </label>
+                <label htmlFor="p-price" className="mb-1.5 block text-sm font-semibold">Price (₹)</label>
                 <input
                   id="p-price"
                   required
                   type="number"
                   step="0.01"
                   value={price}
-                  onChange={(e) => setPrice(e.target.value)}
+                  onChange={e => setPrice(e.target.value)}
                   className="w-full rounded-md border border-[#17261F]/25 px-3.5 py-2.5 tabular-nums outline-none focus:border-[#17261F] focus:ring-2 focus:ring-[#F2B705]"
                 />
               </div>
@@ -403,11 +275,7 @@ export default function ProductsPage() {
                 type="submit"
                 className={`w-full rounded-md bg-[#17261F] py-3 font-semibold text-[#EAEFE7] transition-colors hover:bg-[#25392F] disabled:opacity-60 ${FOCUS}`}
               >
-                {isLoading
-                  ? 'Saving…'
-                  : editingId
-                  ? 'Save changes'
-                  : 'Save product'}
+                {isLoading ? 'Saving…' : 'Save product'}
               </button>
             </form>
           </div>
