@@ -70,7 +70,7 @@ export default function Login() {
               <input
                 type="email"
                 value={email}
-                placeholder="owner@grozia.com"
+                placeholder="email"
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-base focus:border-teal-700 focus:outline focus:outline-2 focus:outline-teal-700"
                 required
@@ -83,6 +83,7 @@ export default function Login() {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
+                  placeholder='password'
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 pr-12 text-base focus:border-teal-700 focus:outline focus:outline-2 focus:outline-teal-700"
                   required

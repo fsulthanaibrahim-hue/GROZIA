@@ -31,7 +31,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const handleLogout = () => {
     document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    window.location.href = '/home';
+    window.location.href = '/login';
   };
 
   const canSeeInventory = userRole === 'Owner' || userRole === 'Store Manager';
