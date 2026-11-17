@@ -8,6 +8,11 @@ from datetime import datetime, timedelta
 from schemas import ProductCreate, SupplierCreate, CustomerCreate
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -23,7 +28,7 @@ app.add_middleware(
 )
 
 # --- JWT SETTINGS ---
-SECRET_KEY = "my_super_secret_key_grozia"
+SECRET_KEY = os.getenv("SECRET_KEY", "fallback-dev-key-do-not-use-in-prod")
 ALGORITHM = "HS256"
 
 # --- PYDANTIC MODELS ---
@@ -31,7 +36,7 @@ class ComplaintCreate(BaseModel):
     customer_name: str
     description: str
     category: str
-    product_id: int | None = None  # Made optional
+    product_id: int | None = None  
 
 # --- HELPERS ---
 def write_audit(db: Session, user_email: str, action: str, details: str = ""):
