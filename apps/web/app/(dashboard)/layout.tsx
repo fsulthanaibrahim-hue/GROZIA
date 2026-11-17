@@ -4,6 +4,7 @@ import { LayoutDashboard, LogOut, Package, Users, MessageSquare, Settings, Bell 
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { canAccessRoute } from '@/lib/permissions'; // 👈 Import the centralized guard
 
 const FOCUS_LIGHT = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F2B705]';
 
@@ -30,20 +31,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, []);
 
   const handleLogout = () => {
+    // Clear both cookies so the Next.js Middleware stops letting them in
     document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    document.cookie = 'user_role=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
     window.location.href = '/login';
   };
 
-  const canSeeInventory = userRole === 'Owner' || userRole === 'Store Manager';
-  const canSeeCustomers = userRole === 'Owner' || userRole === 'Accountant';
-  const canSeeComplaints = userRole === 'Owner' || userRole === 'Store Manager';
-
+  // 👇 Use the centralized function instead of hardcoded role checks
   const links = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard, show: true },
-    { href: '/products', label: 'Inventory', icon: Package, show: canSeeInventory },
-    { href: '/customers', label: 'Customers', icon: Users, show: canSeeCustomers },
-    { href: '/complaints', label: 'Complaints', icon: MessageSquare, show: canSeeComplaints },
-    { href: '/settings', label: 'Settings', icon: Settings, show: true },
+    { href: '/products', label: 'Inventory', icon: Package, show: canAccessRoute(userRole, '/products') },
+    { href: '/customers', label: 'Customers', icon: Users, show: canAccessRoute(userRole, '/customers') },
+    { href: '/complaints', label: 'Complaints', icon: MessageSquare, show: canAccessRoute(userRole, '/complaints') },
+    { href: '/settings', label: 'Settings', icon: Settings, show: canAccessRoute(userRole, '/settings') },
   ].filter(l => l.show);
 
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname?.startsWith(href));

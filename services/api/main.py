@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
+from auth_guard import require_role
 
 # Load environment variables from .env
 load_dotenv()
@@ -92,16 +93,25 @@ def login(response: Response, email: str, password: str, db: Session = Depends(g
         secure=False, 
         path="/"
     )
+
+    response.set_cookie(
+        key="user_role",
+        value=user.role,
+        httponly=False,
+        samesite="lax",
+        secure=False,
+        path="/"
+    )
     return {"message": f"Welcome {user.role}!", "role": user.role}
 
 # --- PRODUCTS ---
 @app.get("/api/products")
-def list_products(db: Session = Depends(get_db)):
+def list_products(db: Session = Depends(get_db), user: dict = Depends(require_role(["Owner", "Store Manager"]))):
     products = db.query(models.Product).order_by(models.Product.id.desc()).limit(100).all()
     return [{"id": p.id, "name": p.name, "category": p.category, "price": float(p.price)} for p in products]
 
 @app.post("/api/products")
-def create_product(product: ProductCreate, db: Session = Depends(get_db)):
+def create_product(product: ProductCreate, db: Session = Depends(get_db), user: dict = Depends(require_role(["Owner", "Store Manager"]))):
     p = models.Product(
         name=product.name,
         category=product.category,
@@ -118,12 +128,12 @@ def create_product(product: ProductCreate, db: Session = Depends(get_db)):
 
 # --- SUPPLIERS ---
 @app.get("/api/suppliers")
-def list_suppliers(db: Session = Depends(get_db)):
+def list_suppliers(db: Session = Depends(get_db), user: dict = Depends(require_role(["Owner", "Store Manager"]))):
     suppliers = db.query(models.Supplier).limit(50).all()
     return [{"id": s.id, "name": s.name, "contact_email": s.contact_email} for s in suppliers]
 
 @app.post("/api/suppliers")
-def create_supplier(supplier: SupplierCreate, db: Session = Depends(get_db)):
+def create_supplier(supplier: SupplierCreate, db: Session = Depends(get_db), user: dict = Depends(require_role(["Owner", "Store Manager"]))):
     s = models.Supplier(name=supplier.name, contact_email=supplier.contact_email)
     db.add(s)
     write_audit(db, "api", "CREATE_SUPPLIER", f"Supplier: {supplier.name}")
@@ -133,12 +143,12 @@ def create_supplier(supplier: SupplierCreate, db: Session = Depends(get_db)):
 
 # --- CUSTOMERS ---
 @app.get("/api/customers")
-def list_customers(db: Session = Depends(get_db)):
+def list_customers(db: Session = Depends(get_db), user: dict = Depends(require_role(["Owner", "Store Manager"]))):
     customers = db.query(models.Customer).limit(50).all()
     return [{"id": c.id, "name": c.name, "credit_limit": float(c.credit_limit)} for c in customers]
 
 @app.post("/api/customers")
-def create_customer(customer: CustomerCreate, db: Session = Depends(get_db)):
+def create_customer(customer: CustomerCreate, db: Session = Depends(get_db), user: dict = Depends(require_role(["Owner", "Store Manager"]))):
     c = models.Customer(name=customer.name, credit_limit=customer.credit_limit)
     db.add(c)
     write_audit(db, "api", "CREATE_CUSTOMER", f"Customer: {customer.name}")
@@ -148,7 +158,7 @@ def create_customer(customer: CustomerCreate, db: Session = Depends(get_db)):
 
 # --- COMPLAINTS ---
 @app.get("/api/complaints")
-def list_complaints(db: Session = Depends(get_db)):
+def list_complaints(db: Session = Depends(get_db), user: dict = Depends(require_role(["Owner", "Store Manager"]))):
     complaints = db.query(models.Complaint).order_by(models.Complaint.id.desc()).all()
     return [
         {
@@ -162,7 +172,7 @@ def list_complaints(db: Session = Depends(get_db)):
     ]
 
 @app.post("/api/complaints")
-def create_complaint(complaint: ComplaintCreate, db: Session = Depends(get_db)):
+def create_complaint(complaint: ComplaintCreate, db: Session = Depends(get_db), user: dict = Depends(require_role(["Owner", "Store Manager"]))):
     new_complaint = models.Complaint(
         customer_name=complaint.customer_name,
         description=complaint.description,
