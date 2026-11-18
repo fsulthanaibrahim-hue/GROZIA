@@ -1,6 +1,13 @@
 from fastapi import Depends, HTTPException, Request
 from jose import jwt
 import os
+from dotenv import load_dotenv
+from sqlalchemy.orm import Session
+from database import get_db
+import models
+
+
+load_dotenv()
 
 SECRET_KEY = os.getenv("SECRET_KEY", "fallback-dev-key-do-not-use-in-prod")
 ALGORITHM = "HS256"
@@ -17,7 +24,23 @@ def get_current_user(request: Request):
 
 def require_role(allowed_roles: list[str]):
     def role_checker(user: dict = Depends(get_current_user)):
+        # Check exact match
         if user.get("role") not in allowed_roles:
-            raise HTTPException(status_code=403, detail="Forbidden: Insufficient permissions")
+            raise HTTPException(status_code=403, detail=f"Forbidden: Role {user.get('role')} not allowed")
         return user
     return role_checker
+
+def require_page(page: str):
+    def page_checker(user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+        db_user = db.query(models.User).filter(models.User.email == user.get("sub")).first()
+        if not db_user:
+            raise HTTPException(status_code=401, detail="User no longer exists")
+        assigned = (
+            db.query(models.UserPage.id)
+            .filter(models.UserPage.user_id == db_user.id, models.UserPage.page == page)
+            .first()
+        )
+        if not assigned:
+            raise HTTPException(status_code=403, detail=f"Forbidden: page '{page}' is not assigned to your account")
+        return user
+    return page_checker

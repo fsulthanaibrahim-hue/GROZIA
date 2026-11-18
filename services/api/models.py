@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Numeric
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Numeric, UniqueConstraint
 from database import Base
 from datetime import datetime
 
@@ -63,3 +63,11 @@ class Sale(Base):
     quantity = Column(Integer, nullable=False)
     total = Column(Numeric(10, 2), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class UserPage(Base):
+    __tablename__ = "user_pages"
+    __table_args__ = (UniqueConstraint("user_id", "page", name="uq_user_page"),)
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    page = Column(String, nullable=False)

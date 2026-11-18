@@ -13,10 +13,10 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const init = async () => {
-      // ✅ Use /api/me for authentication
-      const me = await fetch('/api/me');
+      // ✅ Check authentication (with credentials)
+      const me = await fetch('/api/me', { credentials: 'include' });
       if (me.status === 401) {
-        router.push('/home');
+        router.push('/login'); // 👈 Fixed: Changed from /home to /login
         return;
       }
       setLoading(false);

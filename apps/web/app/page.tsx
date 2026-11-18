@@ -1,19 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 
 export default function LandingPage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    // If user already has a session, skip the landing page and go to dashboard
-    if (document.cookie.includes('access_token=')) {
-      router.push('/');
-    }
-  }, [router]);
-
   return (
     <div className="flex min-h-screen w-full flex-col bg-[#14211F] text-white">
       {/* Header */}

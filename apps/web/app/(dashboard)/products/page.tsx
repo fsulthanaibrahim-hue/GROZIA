@@ -27,10 +27,9 @@ export default function ProductsPage() {
 
   useEffect(() => {
     const init = async () => {
-      // ✅ Use /api/me to check authentication (server reads the httpOnly cookie)
-      const me = await fetch('/api/me');
+      const me = await fetch('/api/me', { credentials: 'include' }); 
       if (me.status === 401) {
-        router.push('/home');
+        router.push('/login'); 
         return;
       }
       await fetchProducts();
@@ -40,7 +39,10 @@ export default function ProductsPage() {
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch('/api/products', { cache: 'no-store' });
+      const res = await fetch('/api/products', { 
+        cache: 'no-store',
+        credentials: 'include' 
+      });
       if (res.ok) setProducts(await res.json());
     } catch (error) { console.error(error); }
   };
@@ -52,6 +54,7 @@ export default function ProductsPage() {
       const res = await fetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // 👈 Added credentials
         body: JSON.stringify({
           name, category, price: parseFloat(price),
           reorder_level: 10, supplier_id: null
@@ -66,7 +69,7 @@ export default function ProductsPage() {
     } catch (error) { console.error(error); } finally { setIsLoading(false); }
   };
 
-  // Search logic (kept from the updated version)
+  // Search logic
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return products;

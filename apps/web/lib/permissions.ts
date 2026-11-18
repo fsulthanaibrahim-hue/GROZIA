@@ -1,22 +1,24 @@
-export type Role = 'Owner' | 'Store Manager' | 'Accountant';
+﻿export type Role = 'Owner' | 'Store Manager' | 'Accountant';
 
-// Define who can see what. 
-export const ROUTE_PERMISSIONS: Record<string, Role[]> = {
-  '/products': ['Owner', 'Store Manager'],
-  '/customers': ['Owner', 'Store Manager', 'Accountant'],
-  '/complaints': ['Owner', 'Store Manager'],
-  '/settings': ['Owner'],
+// URL prefix -> page key stored in the database (user_pages.page)
+export const ROUTE_TO_PAGE: Record<string, string> = {
+  '/products': 'products',
+  '/customers': 'customers',
+  '/complaints': 'complaints',
+  '/settings': 'settings',
 };
 
-// Helper function to check if a role is allowed
-export function canAccessRoute(role: string, pathname: string): boolean {
-  const matchedRoute = Object.keys(ROUTE_PERMISSIONS).find(route => 
-    pathname.startsWith(route)
+export function pageForPath(pathname: string): string | null {
+  const route = Object.keys(ROUTE_TO_PAGE).find(
+    (r) => pathname === r || pathname.startsWith(r + '/')
   );
+  return route ? ROUTE_TO_PAGE[route] : null;
+}
 
-  // If no rule exists for this route, it's public (or default allowed)
-  if (!matchedRoute) return true; 
-
-  // Check if the user's role is in the allowed list
-  return ROUTE_PERMISSIONS[matchedRoute].includes(role as Role);
+// Allowed only if the page is assigned to this user. Paths with no entry
+// above (e.g. /dashboard) are not page-gated.
+export function canAccessRoute(pages: string[], pathname: string): boolean {
+  const page = pageForPath(pathname);
+  if (!page) return true;
+  return pages.includes(page);
 }

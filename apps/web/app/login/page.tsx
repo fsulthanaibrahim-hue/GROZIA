@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 
@@ -11,11 +11,6 @@ export default function Login() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-
-  useEffect(() => {
-    // Clear any old cookie when the login page loads
-    document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,9 +25,10 @@ export default function Login() {
       });
 
       if (!res.ok) throw new Error('Invalid credentials');
+
+      // 👇 Force a hard reload. This destroys the old login state and fetches the dashboard fresh.
+      window.location.href = '/dashboard';
       
-      // Force a full reload to ensure the cookie is sent
-      window.location.href = '/';
     } catch {
       setError('Email or password is incorrect.');
       setIsLoading(false);

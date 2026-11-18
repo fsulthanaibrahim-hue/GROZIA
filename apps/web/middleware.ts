@@ -1,46 +1,33 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { canAccessRoute } from './lib/permissions';
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const token = request.cookies.get('access_token')?.value;
 
-  // 1. Allow public routes
   if (
-    pathname === '/login' || 
-    pathname === '/home' ||
-    pathname.startsWith('/api') || // We protect APIs in Python
+    pathname === '/login' ||
+    pathname === '/403' ||
+    pathname.startsWith('/api') ||
     pathname.startsWith('/_next')
   ) {
     return NextResponse.next();
   }
 
-  // 2. Get the user's role. 
-  // NOTE: Since your login API sets a cookie, you need to read it here.
-  // If your API sets 'access_token' but not the role, you will need to 
-  // modify your Python /api/login to ALSO set a non-httpOnly cookie called 'user_role'.
-  const userRole = request.cookies.get('user_role')?.value;
+  if (pathname === '/') {
+    if (token) return NextResponse.redirect(new URL('/dashboard', request.url));
+    return NextResponse.next();
+  }
 
-  // 3. Redirect to login if not authenticated
-  if (!userRole) {
+  if (!token) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // 4. Check permissions
-  if (!canAccessRoute(userRole, pathname)) {
-    // Redirect to a 403 page you create
-    return NextResponse.redirect(new URL('/403', request.url));
-  }
-
+  // Page permissions are enforced by the dashboard layout (from /api/me)
+  // and by the API itself, never from a cookie the user can edit.
   return NextResponse.next();
 }
 
-// Run this middleware only on the dashboard routes
 export const config = {
-  matcher: [
-    '/products/:path*',
-    '/customers/:path*',
-    '/complaints/:path*',
-    '/settings/:path*',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };

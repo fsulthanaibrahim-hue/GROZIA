@@ -17,10 +17,10 @@ export default function CustomersPage() {
 
   useEffect(() => {
     const init = async () => {
-      // ✅ Use /api/me instead of document.cookie (httpOnly cookie)
-      const me = await fetch('/api/me');
+      // ✅ Check authentication (with credentials)
+      const me = await fetch('/api/me', { credentials: 'include' });
       if (me.status === 401) {
-        router.push('/home');
+        router.push('/login'); // 👈 Fixed: Changed from /home to /login
         return;
       }
       await fetchCustomers();
@@ -30,7 +30,11 @@ export default function CustomersPage() {
 
   const fetchCustomers = async () => {
     try {
-      const res = await fetch('/api/customers', { cache: 'no-store' });
+      // 👈 Added credentials: 'include'
+      const res = await fetch('/api/customers', { 
+        cache: 'no-store',
+        credentials: 'include' 
+      });
       if (res.ok) setCustomers(await res.json());
     } catch (error) { console.error(error); }
   };
@@ -42,6 +46,7 @@ export default function CustomersPage() {
       const res = await fetch('/api/customers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // 👈 Added credentials
         body: JSON.stringify({ name, credit_limit: parseFloat(creditLimit) }),
       });
       if (res.ok) {

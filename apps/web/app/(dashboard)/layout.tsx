@@ -1,52 +1,59 @@
-'use client';
+﻿'use client';
 
 import { LayoutDashboard, LogOut, Package, Users, MessageSquare, Settings, Bell } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { canAccessRoute } from '@/lib/permissions'; // 👈 Import the centralized guard
+import { canAccessRoute } from '@/lib/permissions'; 
 
 const FOCUS_LIGHT = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F2B705]';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [userEmail, setUserEmail] = useState('');
   const [userRole, setUserRole] = useState('');
+  const [userPages, setUserPages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     const init = async () => {
-      const res = await fetch('/api/me');
+      // ðŸ‘‡ Added credentials: 'include'
+      const res = await fetch('/api/me', { credentials: 'include' });
       if (res.status === 401) {
-        window.location.href = '/home';
+        window.location.href = '/login'; 
         return;
       }
       const data = await res.json();
       setUserEmail(data.email);
       setUserRole(data.role);
+      setUserPages(data.pages ?? []);
       setLoading(false);
     };
     init();
   }, []);
 
   const handleLogout = () => {
-    // Clear both cookies so the Next.js Middleware stops letting them in
     document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
     document.cookie = 'user_role=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    window.location.href = '/login';
+    window.location.href = '/login'; 
   };
 
-  // 👇 Use the centralized function instead of hardcoded role checks
   const links = [
-    { href: '/', label: 'Dashboard', icon: LayoutDashboard, show: true },
-    { href: '/products', label: 'Inventory', icon: Package, show: canAccessRoute(userRole, '/products') },
-    { href: '/customers', label: 'Customers', icon: Users, show: canAccessRoute(userRole, '/customers') },
-    { href: '/complaints', label: 'Complaints', icon: MessageSquare, show: canAccessRoute(userRole, '/complaints') },
-    { href: '/settings', label: 'Settings', icon: Settings, show: canAccessRoute(userRole, '/settings') },
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, show: true },
+    { href: '/products', label: 'Inventory', icon: Package, show: canAccessRoute(userPages, '/products') },
+    { href: '/customers', label: 'Customers', icon: Users, show: canAccessRoute(userPages, '/customers') },
+    { href: '/complaints', label: 'Complaints', icon: MessageSquare, show: canAccessRoute(userPages, '/complaints') },
+    { href: '/settings', label: 'Settings', icon: Settings, show: canAccessRoute(userPages, '/settings') },
   ].filter(l => l.show);
 
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname?.startsWith(href));
+
+  const allowed = canAccessRoute(userPages, pathname ?? '');
+
+  useEffect(() => {
+    if (!loading && !allowed) router.replace('/403');
+  }, [loading, allowed, router]);
 
   if (loading) {
     return (
@@ -135,7 +142,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto">{allowed ? children : null}</main>
       </div>
     </div>
   );

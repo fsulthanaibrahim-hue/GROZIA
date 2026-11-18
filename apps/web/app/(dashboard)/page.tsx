@@ -74,35 +74,47 @@ function Callout({
 
 const primaryLink = `inline-block rounded-md bg-[#17261F] px-5 py-2.5 font-semibold text-[#EAEFE7] transition-colors hover:bg-[#25392F] ${FOCUS}`;
 
+// Types for our data
+type ComplaintData = { id: number; category: string; status: string };
+
 export default function Dashboard() {
   const [role, setRole] = useState('User');
+  const [loading, setLoading] = useState(true);
+  
   const [products, setProducts] = useState([]);
-  const [complaints, setComplaints] = useState({ open: 0, availability: 0 });
+  const [rawComplaints, setRawComplaints] = useState<ComplaintData[]>([]);
   const [customers, setCustomers] = useState([]);
+
+  // Derived state for complaints
+  const openComplaints = rawComplaints.filter(c => c.status === 'open').length;
+  const availabilityComplaints = rawComplaints.filter(c => c.category === 'availability').length;
 
   useEffect(() => {
     const init = async () => {
       try {
-        // 1. Get the user's role from /api/me (server reads the httpOnly cookie)
+        // 1. Get the user's role
         const meRes = await fetch('/api/me');
         if (meRes.status === 401) {
-          window.location.href = '/home';
+          window.location.href = '/login'; // 👈 Fixed this line
           return;
         }
         const meData = await meRes.json();
         setRole(meData.role || 'User');
 
-        // 2. Fetch dashboard data
+        // 2. Fetch dashboard data in parallel
         const [prodRes, compRes, custRes] = await Promise.all([
           fetch('/api/products'),
           fetch('/api/complaints'),
           fetch('/api/customers')
         ]);
+        
         if (prodRes.ok) setProducts(await prodRes.json());
-        if (compRes.ok) setComplaints(await compRes.json());
+        if (compRes.ok) setRawComplaints(await compRes.json());
         if (custRes.ok) setCustomers(await custRes.json());
       } catch (e) {
-        console.error(e);
+        console.error("Dashboard fetch error:", e);
+      } finally {
+        setLoading(false);
       }
     };
     init();
@@ -111,6 +123,16 @@ export default function Dashboard() {
   const iconClass = 'text-[#17261F]/45';
   const alertIcon = <AlertTriangle size={18} className="text-[#C8321E]" />;
 
+  if (loading) {
+    return (
+      <Shell>
+        <div className="flex h-64 items-center justify-center">
+          <p className="text-lg font-medium text-[#17261F]/65 animate-pulse">Loading dashboard data...</p>
+        </div>
+      </Shell>
+    );
+  }
+
   if (role === 'Owner') {
     return (
       <Shell>
@@ -118,7 +140,7 @@ export default function Dashboard() {
         <StatStrip
           stats={[
             { label: 'Products', value: products.length, icon: <Package size={18} className={iconClass} /> },
-            { label: 'Open complaints', value: complaints.open, icon: alertIcon },
+            { label: 'Open complaints', value: openComplaints, icon: alertIcon },
             { label: 'Credit customers', value: customers.length, icon: <Users size={18} className={iconClass} /> },
           ]}
         />
@@ -126,7 +148,7 @@ export default function Dashboard() {
           <div>
             <h2 className="font-display text-2xl font-semibold">Sales are down 40% this week</h2>
             <p className="mt-1 max-w-xl text-[#EAEFE7]/75">
-              {complaints.availability} customers said items were out of stock.
+              {availabilityComplaints} customers said items were out of stock.
             </p>
           </div>
           <button
@@ -146,7 +168,7 @@ export default function Dashboard() {
         <StatStrip
           stats={[
             { label: 'Total products', value: products.length, icon: <Package size={18} className={iconClass} /> },
-            { label: 'Open complaints', value: complaints.open, icon: alertIcon },
+            { label: 'Open complaints', value: openComplaints, icon: alertIcon },
           ]}
         />
         <Callout
@@ -154,7 +176,7 @@ export default function Dashboard() {
           barClass="border-l-[#D9822B]"
           action={<Link href="/products" className={primaryLink}>Go to inventory</Link>}
         >
-          {complaints.availability} customers complained about missing stock.
+          {availabilityComplaints} customers complained about missing stock.
         </Callout>
       </Shell>
     );
@@ -188,7 +210,7 @@ export default function Dashboard() {
 
   return (
     <Shell>
-      <p className="text-[#17261F]/65">Loading…</p>
+      <p className="text-[#17261F]/65">User role not recognized.</p>
     </Shell>
   );
 }
