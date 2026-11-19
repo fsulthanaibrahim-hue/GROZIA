@@ -9,53 +9,80 @@ const FOCUS = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visi
 export default function CustomersPage() {
   const router = useRouter();
   const [customers, setCustomers] = useState<any[]>([]);
+  const [formError, setFormError] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [query, setQuery] = useState('');
   const [name, setName] = useState('');
   const [creditLimit, setCreditLimit] = useState('');
 
+  // One call on load. Authentication is already checked by the dashboard layout,
+  // and the API itself returns 401/403 if the session or page assignment is missing.
   useEffect(() => {
-    const init = async () => {
-      // ✅ Check authentication (with credentials)
-      const me = await fetch('/api/me', { credentials: 'include' });
-      if (me.status === 401) {
-        router.push('/login'); // 👈 Fixed: Changed from /home to /login
-        return;
-      }
-      await fetchCustomers();
-    };
-    init();
-  }, [router]);
+    fetchCustomers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchCustomers = async () => {
     try {
-      // 👈 Added credentials: 'include'
-      const res = await fetch('/api/customers', { 
+      const res = await fetch('/api/customers', {
         cache: 'no-store',
-        credentials: 'include' 
+        credentials: 'include',
       });
       if (res.ok) setCustomers(await res.json());
-    } catch (error) { console.error(error); }
+      else if (res.status === 401) window.location.href = '/login';
+      else if (res.status === 403) router.replace('/403');
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const openModal = () => {
+    setFormError('');
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setFormError('');
+    setName('');
+    setCreditLimit('');
   };
 
   const handleAddCustomer = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError('');
+
+    const limit = parseFloat(creditLimit);
+    if (!Number.isFinite(limit) || limit <= 0) {
+      setFormError('Credit limit must be a positive number.');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const res = await fetch('/api/customers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // 👈 Added credentials
-        body: JSON.stringify({ name, credit_limit: parseFloat(creditLimit) }),
+        credentials: 'include',
+        body: JSON.stringify({ name: name.trim(), credit_limit: limit }),
       });
       if (res.ok) {
-        setIsModalOpen(false);
-        setName('');
-        setCreditLimit('');
+        closeModal();
         await fetchCustomers();
+      } else if (res.status === 422) {
+        setFormError('Please enter a valid name and a positive credit limit.');
+      } else if (res.status === 403) {
+        setFormError('You do not have permission to add customers.');
+      } else {
+        setFormError('Could not save the customer. Try again.');
       }
-    } catch (error) { console.error(error); } finally { setIsLoading(false); }
+    } catch (error) {
+      console.error(error);
+      setFormError('Could not save the customer. Try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const visible = useMemo(() => {
@@ -91,7 +118,7 @@ export default function CustomersPage() {
             </p>
           </div>
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={openModal}
             className={`flex items-center gap-2 rounded-md bg-[#17261F] px-5 py-2.5 font-semibold text-[#EAEFE7] transition-colors hover:bg-[#25392F] ${FOCUS}`}
           >
             <Plus size={18} strokeWidth={2.5} /> Add customer
@@ -145,7 +172,7 @@ export default function CustomersPage() {
                   <p className="font-display text-xl font-semibold">No credit customers yet</p>
                   <p className="mt-1 text-sm text-[#17261F]/60">Add a customer and set how much they can owe you.</p>
                   <button
-                    onClick={() => setIsModalOpen(true)}
+                    onClick={openModal}
                     className={`mt-5 rounded-md bg-[#17261F] px-4 py-2 text-sm font-semibold text-[#EAEFE7] ${FOCUS}`}
                   >
                     Add customer
@@ -175,7 +202,7 @@ export default function CustomersPage() {
                 Add customer
               </h2>
               <button
-                onClick={() => setIsModalOpen(false)}
+                onClick={closeModal}
                 aria-label="Close"
                 className={`rounded p-1 text-[#17261F]/60 hover:bg-[#EAEFE7] hover:text-[#17261F] ${FOCUS}`}
               >
@@ -201,11 +228,23 @@ export default function CustomersPage() {
                   id="cu-limit"
                   required
                   type="number"
+                  min="1"
+                  step="any"
                   value={creditLimit}
                   onChange={e => setCreditLimit(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === '-' || e.key === '+' || e.key === 'e' || e.key === 'E') e.preventDefault();
+                  }}
                   className="w-full rounded-md border border-[#17261F]/25 px-3.5 py-2.5 tabular-nums outline-none focus:border-[#17261F] focus:ring-2 focus:ring-[#F2B705]"
                 />
               </div>
+
+              {formError && (
+                <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                  {formError}
+                </p>
+              )}
+
               <button
                 disabled={isLoading}
                 type="submit"

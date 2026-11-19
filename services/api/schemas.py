@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from decimal import Decimal
 from typing import Optional
 
@@ -14,5 +14,5 @@ class SupplierCreate(BaseModel):
     contact_email: str
 
 class CustomerCreate(BaseModel):
-    name: str
-    credit_limit: Decimal
+    name: str = Field(min_length=1, max_length=200)
+    credit_limit: float = Field(gt=0)

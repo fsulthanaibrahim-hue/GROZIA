@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Package, AlertTriangle, DollarSign, Users } from 'lucide-react';
 import Link from 'next/link';
+import { useCurrentUser } from '@/lib/user-context';
 
 const FOCUS = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#17261F]';
 
@@ -33,11 +34,11 @@ function Header({ title, subtitle }: { title: string; subtitle: string }) {
 type Stat = { label: string; value: React.ReactNode; icon: React.ReactNode };
 
 function StatStrip({ stats }: { stats: Stat[] }) {
+  if (stats.length === 0) return null;
+  const cols = stats.length >= 3 ? 'md:grid-cols-3' : stats.length === 2 ? 'md:grid-cols-2' : 'md:grid-cols-1';
   return (
     <dl
-      className={`mb-6 grid overflow-hidden rounded-lg border border-[#17261F]/15 bg-white divide-y divide-[#17261F]/15 md:divide-x md:divide-y-0 ${
-        stats.length === 3 ? 'md:grid-cols-3' : 'md:grid-cols-2'
-      }`}
+      className={`mb-6 grid overflow-hidden rounded-lg border border-[#17261F]/15 bg-white divide-y divide-[#17261F]/15 md:divide-x md:divide-y-0 ${cols}`}
     >
       {stats.map(s => (
         <div key={s.label} className="px-6 py-6">
@@ -74,50 +75,54 @@ function Callout({
 
 const primaryLink = `inline-block rounded-md bg-[#17261F] px-5 py-2.5 font-semibold text-[#EAEFE7] transition-colors hover:bg-[#25392F] ${FOCUS}`;
 
-// Types for our data
 type ComplaintData = { id: number; category: string; status: string };
 
 export default function DashboardPage() {
-  const [role, setRole] = useState('User');
-  const [loading, setLoading] = useState(true);
-  
-  const [products, setProducts] = useState([]);
-  const [rawComplaints, setRawComplaints] = useState<ComplaintData[]>([]);
-  const [customers, setCustomers] = useState([]);
+  // role and pages come from the layout, so this page does not call /api/me again.
+  const user = useCurrentUser();
+  const role = user?.role ?? 'User';
+  const pages = user?.pages ?? [];
 
-  // Derived state for complaints
+  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState<any[]>([]);
+  const [rawComplaints, setRawComplaints] = useState<ComplaintData[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
+
+  const has = (page: string) => pages.includes(page);
+
   const openComplaints = rawComplaints.filter(c => c.status === 'open').length;
   const availabilityComplaints = rawComplaints.filter(c => c.category === 'availability').length;
 
   useEffect(() => {
     const init = async () => {
       try {
-        // 1. Get the user's role (WITH CREDENTIALS)
-        const meRes = await fetch('/api/me', { credentials: 'include' });
-        if (meRes.status === 401) {
-          window.location.href = '/login';
-          return;
-        }
-        const meData = await meRes.json();
-        setRole(meData.role || 'User');
+        // Only request data for pages assigned to this user.
+        const get = async (path: string) => {
+          const r = await fetch(path, { credentials: 'include', cache: 'no-store' });
+          if (r.status === 401) {
+            window.location.href = '/login';
+            return [];
+          }
+          return r.ok ? r.json() : [];
+        };
 
-        // 2. Fetch dashboard data in parallel (WITH CREDENTIALS)
-        const [prodRes, compRes, custRes] = await Promise.all([
-          fetch('/api/products', { credentials: 'include' }), // 👈 FIXED
-          fetch('/api/complaints', { credentials: 'include' }), // 👈 FIXED
-          fetch('/api/customers', { credentials: 'include' }) // 👈 FIXED
+        const [prod, comp, cust] = await Promise.all([
+          has('products') ? get('/api/products') : Promise.resolve([]),
+          has('complaints') ? get('/api/complaints') : Promise.resolve([]),
+          has('customers') ? get('/api/customers') : Promise.resolve([]),
         ]);
-        
-        if (prodRes.ok) setProducts(await prodRes.json());
-        if (compRes.ok) setRawComplaints(await compRes.json());
-        if (custRes.ok) setCustomers(await custRes.json());
+
+        setProducts(prod);
+        setRawComplaints(comp);
+        setCustomers(cust);
       } catch (e) {
-        console.error("Dashboard fetch error:", e);
+        console.error('Dashboard fetch error:', e);
       } finally {
         setLoading(false);
       }
     };
     init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const iconClass = 'text-[#17261F]/45';
@@ -134,73 +139,76 @@ export default function DashboardPage() {
   }
 
   if (role === 'Owner') {
+    const stats: Stat[] = [];
+    if (has('products')) stats.push({ label: 'Products', value: products.length, icon: <Package size={18} className={iconClass} /> });
+    if (has('complaints')) stats.push({ label: 'Open complaints', value: openComplaints, icon: alertIcon });
+    if (has('customers')) stats.push({ label: 'Credit customers', value: customers.length, icon: <Users size={18} className={iconClass} /> });
+
     return (
       <Shell>
         <Header title="Good to see you, Owner" subtitle="Here is your shop’s full overview." />
-        <StatStrip
-          stats={[
-            { label: 'Products', value: products.length, icon: <Package size={18} className={iconClass} /> },
-            { label: 'Open complaints', value: openComplaints, icon: alertIcon },
-            { label: 'Credit customers', value: customers.length, icon: <Users size={18} className={iconClass} /> },
-          ]}
-        />
-        <div className="flex flex-wrap items-center justify-between gap-6 rounded-lg bg-[#17261F] p-6 text-[#EAEFE7] sm:p-8">
-          <div>
-            <h2 className="font-display text-2xl font-semibold">Sales are down 40% this week</h2>
-            <p className="mt-1 max-w-xl text-[#EAEFE7]/75">
-              {availabilityComplaints} customers said items were out of stock.
-            </p>
+        <StatStrip stats={stats} />
+        {has('complaints') && (
+          <div className="flex flex-wrap items-center justify-between gap-6 rounded-lg bg-[#17261F] p-6 text-[#EAEFE7] sm:p-8">
+            <div>
+              <h2 className="font-display text-2xl font-semibold">Sales are down 40% this week</h2>
+              <p className="mt-1 max-w-xl text-[#EAEFE7]/75">
+                {availabilityComplaints} customers said items were out of stock.
+              </p>
+            </div>
+            <button
+              className="rounded-md bg-[#F2B705] px-5 py-2.5 font-semibold text-[#17261F] transition-colors hover:bg-[#FFC91F] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F2B705]"
+            >
+              Draft a purchase order
+            </button>
           </div>
-          <button
-            className="rounded-md bg-[#F2B705] px-5 py-2.5 font-semibold text-[#17261F] transition-colors hover:bg-[#FFC91F] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F2B705]"
-          >
-            Draft a purchase order
-          </button>
-        </div>
+        )}
       </Shell>
     );
   }
 
   if (role === 'Store Manager') {
+    const stats: Stat[] = [];
+    if (has('products')) stats.push({ label: 'Total products', value: products.length, icon: <Package size={18} className={iconClass} /> });
+    if (has('complaints')) stats.push({ label: 'Open complaints', value: openComplaints, icon: alertIcon });
+
     return (
       <Shell>
         <Header title="Good to see you, Store Manager" subtitle="Here is your stock and complaint overview." />
-        <StatStrip
-          stats={[
-            { label: 'Total products', value: products.length, icon: <Package size={18} className={iconClass} /> },
-            { label: 'Open complaints', value: openComplaints, icon: alertIcon },
-          ]}
-        />
-        <Callout
-          title="Out-of-stock alert"
-          barClass="border-l-[#D9822B]"
-          action={<Link href="/products" className={primaryLink}>Go to inventory</Link>}
-        >
-          {availabilityComplaints} customers complained about missing stock.
-        </Callout>
+        <StatStrip stats={stats} />
+        {has('complaints') && (
+          <Callout
+            title="Out-of-stock alert"
+            barClass="border-l-[#D9822B]"
+            action={has('products') ? <Link href="/products" className={primaryLink}>Go to inventory</Link> : undefined}
+          >
+            {availabilityComplaints} customers complained about missing stock.
+          </Callout>
+        )}
       </Shell>
     );
   }
 
   if (role === 'Accountant') {
     const totalCredit = customers.reduce((sum: number, c: any) => sum + (Number(c.credit_limit) || 0), 0);
+    const stats: Stat[] = [];
+    if (has('customers')) {
+      stats.push({ label: 'Credit customers', value: customers.length, icon: <Users size={18} className={iconClass} /> });
+      stats.push({
+        label: 'Total credit',
+        value: `₹${totalCredit.toLocaleString('en-IN')}`,
+        icon: <DollarSign size={18} className={iconClass} />,
+      });
+    }
+
     return (
       <Shell>
         <Header title="Good to see you, Accountant" subtitle="Here is your financial overview." />
-        <StatStrip
-          stats={[
-            { label: 'Credit customers', value: customers.length, icon: <Users size={18} className={iconClass} /> },
-            {
-              label: 'Total credit',
-              value: `₹${totalCredit.toLocaleString('en-IN')}`,
-              icon: <DollarSign size={18} className={iconClass} />,
-            },
-          ]}
-        />
+        <StatStrip stats={stats} />
         <Callout
           title="Financial overview"
           barClass="border-l-[#17261F]"
-          action={<Link href="/customers" className={primaryLink}>Go to customers</Link>}
+          action={has('customers') ? <Link href="/customers" className={primaryLink}>Go to customers</Link> : undefined}
         >
           Manage your customers and invoices.
         </Callout>

@@ -27,7 +27,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-SECRET_KEY = os.getenv("SECRET_KEY", "fallback-dev-key-do-not-use-in-prod")
+from auth_guard import SECRET_KEY
 ALGORITHM = "HS256"
 
 class ComplaintCreate(BaseModel):
@@ -202,3 +202,4 @@ def get_dashboard_stats(db: Session = Depends(get_db), user: dict = Depends(requ
         "total_sales": 0.00,
         "low_stock": 0,
     }
+

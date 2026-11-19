@@ -19,54 +19,87 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [formError, setFormError] = useState('');
   const [query, setQuery] = useState('');
 
   const [name, setName] = useState('');
   const [category, setCategory] = useState('Dairy');
   const [price, setPrice] = useState('');
 
+  // One call on load. Authentication is already checked by the dashboard layout,
+  // and the API itself returns 401/403 if the session or page assignment is missing.
   useEffect(() => {
-    const init = async () => {
-      const me = await fetch('/api/me', { credentials: 'include' }); 
-      if (me.status === 401) {
-        router.push('/login'); 
-        return;
-      }
-      await fetchProducts();
-    };
-    init();
-  }, [router]);
+    fetchProducts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch('/api/products', { 
+      const res = await fetch('/api/products', {
         cache: 'no-store',
-        credentials: 'include' 
+        credentials: 'include',
       });
       if (res.ok) setProducts(await res.json());
-    } catch (error) { console.error(error); }
+      else if (res.status === 401) window.location.href = '/login';
+      else if (res.status === 403) router.replace('/403');
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const openModal = () => {
+    setFormError('');
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setFormError('');
+    setName('');
+    setCategory('Dairy');
+    setPrice('');
   };
 
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError('');
+
+    const parsedPrice = parseFloat(price);
+    if (!Number.isFinite(parsedPrice) || parsedPrice <= 0) {
+      setFormError('Price must be a positive number.');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const res = await fetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // 👈 Added credentials
+        credentials: 'include',
         body: JSON.stringify({
-          name, category, price: parseFloat(price),
-          reorder_level: 10, supplier_id: null
+          name: name.trim(),
+          category,
+          price: parsedPrice,
+          reorder_level: 10,
+          supplier_id: null,
         }),
       });
       if (res.ok) {
-        setIsModalOpen(false);
-        setName('');
-        setPrice('');
+        closeModal();
         await fetchProducts();
+      } else if (res.status === 403) {
+        setFormError('You do not have permission to add products.');
+      } else if (res.status === 422) {
+        setFormError('Please enter a valid name and a positive price.');
+      } else {
+        setFormError('Could not save the product. Try again.');
       }
-    } catch (error) { console.error(error); } finally { setIsLoading(false); }
+    } catch (error) {
+      console.error(error);
+      setFormError('Could not save the product. Try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Search logic
@@ -105,7 +138,7 @@ export default function ProductsPage() {
             </p>
           </div>
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={openModal}
             className={`flex items-center gap-2 rounded-md bg-[#17261F] px-5 py-2.5 font-semibold text-[#EAEFE7] transition-colors hover:bg-[#25392F] ${FOCUS}`}
           >
             <Plus size={18} strokeWidth={2.5} /> Add product
@@ -189,7 +222,7 @@ export default function ProductsPage() {
                   <p className="font-display text-xl font-semibold">No products yet</p>
                   <p className="mt-1 text-sm text-[#17261F]/60">Add your first product to start your inventory.</p>
                   <button
-                    onClick={() => setIsModalOpen(true)}
+                    onClick={openModal}
                     className={`mt-5 rounded-md bg-[#17261F] px-4 py-2 text-sm font-semibold text-[#EAEFE7] ${FOCUS}`}
                   >
                     Add product
@@ -226,7 +259,7 @@ export default function ProductsPage() {
                 Add product
               </h2>
               <button
-                onClick={() => setIsModalOpen(false)}
+                onClick={closeModal}
                 aria-label="Close"
                 className={`rounded p-1 text-[#17261F]/60 hover:bg-[#EAEFE7] hover:text-[#17261F] ${FOCUS}`}
               >
@@ -267,12 +300,23 @@ export default function ProductsPage() {
                   id="p-price"
                   required
                   type="number"
+                  min="0.01"
                   step="0.01"
                   value={price}
                   onChange={e => setPrice(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === '-' || e.key === '+' || e.key === 'e' || e.key === 'E') e.preventDefault();
+                  }}
                   className="w-full rounded-md border border-[#17261F]/25 px-3.5 py-2.5 tabular-nums outline-none focus:border-[#17261F] focus:ring-2 focus:ring-[#F2B705]"
                 />
               </div>
+
+              {formError && (
+                <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                  {formError}
+                </p>
+              )}
+
               <button
                 disabled={isLoading}
                 type="submit"

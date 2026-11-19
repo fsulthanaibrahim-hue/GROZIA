@@ -11,53 +11,77 @@ export default function ComplaintsPage() {
   const [complaints, setComplaints] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [formError, setFormError] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [issue, setIssue] = useState('');
   const [category, setCategory] = useState('quality');
 
+  // One call on load. Authentication is already checked by the dashboard layout,
+  // and the API itself returns 401/403 if the session or page assignment is missing.
   useEffect(() => {
-    const init = async () => {
-      // ✅ Check authentication (with credentials)
-      const me = await fetch('/api/me', { credentials: 'include' });
-      if (me.status === 401) {
-        router.push('/login'); // 👈 Fixed: Changed from /home to /login
-        return;
-      }
-      await fetchComplaints();
-    };
-    init();
-  }, [router]);
+    fetchComplaints();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fetchComplaints = async () => {
     try {
-      // 👈 Added credentials: 'include'
-      const res = await fetch('/api/complaints', { 
+      const res = await fetch('/api/complaints', {
         cache: 'no-store',
-        credentials: 'include' 
+        credentials: 'include',
       });
       if (res.ok) setComplaints(await res.json());
-    } catch (error) { console.error(error); }
+      else if (res.status === 401) window.location.href = '/login';
+      else if (res.status === 403) router.replace('/403');
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const openModal = () => {
+    setFormError('');
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setFormError('');
+    setCustomerName('');
+    setIssue('');
+    setCategory('quality');
   };
 
   const handleAddComplaint = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError('');
     setIsLoading(true);
     try {
       const res = await fetch('/api/complaints', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // 👈 Added credentials
+        credentials: 'include',
         body: JSON.stringify({
-          customer_name: customerName, description: issue, category, product_id: null
+          customer_name: customerName.trim(),
+          description: issue.trim(),
+          category,
+          product_id: null,
         }),
       });
       if (res.ok) {
-        setIsModalOpen(false);
-        setCustomerName('');
-        setIssue('');
+        closeModal();
         await fetchComplaints();
+      } else if (res.status === 403) {
+        setFormError('You do not have permission to log complaints.');
+      } else if (res.status === 422) {
+        setFormError('Please check the details and try again.');
+      } else {
+        setFormError('Could not save the complaint. Try again.');
       }
-    } catch (error) { console.error(error); } finally { setIsLoading(false); }
+    } catch (error) {
+      console.error(error);
+      setFormError('Could not save the complaint. Try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const openCount = complaints.filter((c: any) => c.status === 'open').length;
@@ -91,7 +115,7 @@ export default function ComplaintsPage() {
             </p>
           </div>
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={openModal}
             className={`flex items-center gap-2 rounded-md bg-[#17261F] px-5 py-2.5 font-semibold text-[#EAEFE7] transition-colors hover:bg-[#25392F] ${FOCUS}`}
           >
             <Plus size={18} strokeWidth={2.5} /> Log complaint
@@ -103,7 +127,7 @@ export default function ComplaintsPage() {
             <p className="font-display text-xl font-semibold">No complaints logged</p>
             <p className="mt-1 text-sm text-[#17261F]/60">When a customer reports a problem, log it here to track it.</p>
             <button
-              onClick={() => setIsModalOpen(true)}
+              onClick={openModal}
               className={`mt-5 rounded-md bg-[#17261F] px-4 py-2 text-sm font-semibold text-[#EAEFE7] ${FOCUS}`}
             >
               Log complaint
@@ -162,7 +186,7 @@ export default function ComplaintsPage() {
                 Log complaint
               </h2>
               <button
-                onClick={() => setIsModalOpen(false)}
+                onClick={closeModal}
                 aria-label="Close"
                 className={`rounded p-1 text-[#17261F]/60 hover:bg-[#EAEFE7] hover:text-[#17261F] ${FOCUS}`}
               >
@@ -207,6 +231,13 @@ export default function ComplaintsPage() {
                   <option value="service">Service</option>
                 </select>
               </div>
+
+              {formError && (
+                <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                  {formError}
+                </p>
+              )}
+
               <button
                 disabled={isLoading}
                 type="submit"

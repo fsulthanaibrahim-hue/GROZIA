@@ -1,34 +1,43 @@
 from fastapi import Depends, HTTPException, Request
-from jose import jwt
+from sqlalchemy.orm import Session
+from jose import jwt, JWTError
 import os
 from dotenv import load_dotenv
-from sqlalchemy.orm import Session
+
 from database import get_db
 import models
 
-
 load_dotenv()
 
-SECRET_KEY = os.getenv("SECRET_KEY", "fallback-dev-key-do-not-use-in-prod")
+# No fallback: refuse to start without a real secret.
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY or len(SECRET_KEY) < 32:
+    raise RuntimeError("SECRET_KEY must be set in .env and be at least 32 characters")
 ALGORITHM = "HS256"
+
 
 def get_current_user(request: Request):
     token = request.cookies.get("access_token")
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
-    except:
+        payload = jwt.decode(
+            token, SECRET_KEY, algorithms=[ALGORITHM], options={"require_exp": True}
+        )
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    if not payload.get("sub"):
         raise HTTPException(status_code=401, detail="Invalid token")
+    return payload
+
 
 def require_role(allowed_roles: list[str]):
     def role_checker(user: dict = Depends(get_current_user)):
-        # Check exact match
         if user.get("role") not in allowed_roles:
             raise HTTPException(status_code=403, detail=f"Forbidden: Role {user.get('role')} not allowed")
         return user
     return role_checker
+
 
 def require_page(page: str):
     def page_checker(user: dict = Depends(get_current_user), db: Session = Depends(get_db)):

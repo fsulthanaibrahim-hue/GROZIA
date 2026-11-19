@@ -4,7 +4,8 @@ import { LayoutDashboard, LogOut, Package, Users, MessageSquare, Settings, Bell 
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { canAccessRoute } from '@/lib/permissions'; 
+import { canAccessRoute } from '@/lib/permissions';
+import { UserContext } from '@/lib/user-context';
 
 const FOCUS_LIGHT = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F2B705]';
 
@@ -18,10 +19,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     const init = async () => {
-      // ðŸ‘‡ Added credentials: 'include'
+      // The only /api/me call. Child pages read this data from UserContext.
       const res = await fetch('/api/me', { credentials: 'include' });
       if (res.status === 401) {
-        window.location.href = '/login'; 
+        window.location.href = '/login';
         return;
       }
       const data = await res.json();
@@ -33,10 +34,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     init();
   }, []);
 
-  const handleLogout = () => {
-    document.cookie = 'access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    document.cookie = 'user_role=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    window.location.href = '/login'; 
+  // The access_token cookie is HttpOnly, so only the server can delete it.
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/logout', { method: 'POST', credentials: 'include' });
+    } finally {
+      window.location.href = '/login';
+    }
   };
 
   const links = [
@@ -142,7 +146,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto">{allowed ? children : null}</main>
+        <main className="flex-1 overflow-y-auto">
+          <UserContext.Provider value={{ email: userEmail, role: userRole, pages: userPages }}>
+            {allowed ? children : null}
+          </UserContext.Provider>
+        </main>
       </div>
     </div>
   );

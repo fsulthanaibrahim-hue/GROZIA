@@ -5,6 +5,14 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get('access_token')?.value;
 
+  // Block typing /api/... into the address bar. App fetch() calls are unaffected.
+  if (
+    pathname.startsWith('/api') &&
+    request.headers.get('sec-fetch-mode') === 'navigate'
+  ) {
+    return new NextResponse('Not found', { status: 404 });
+  }
+
   if (
     pathname === '/login' ||
     pathname === '/403' ||

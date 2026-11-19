@@ -9,6 +9,7 @@ services:
     depends_on:
       - api
       - web
+    profiles: ["core"]  
 
   # 2. Next.js Frontend
   web:
@@ -33,7 +34,7 @@ services:
   db:
     image: postgres:15-alpine
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     environment:
       POSTGRES_USER: shopops
       POSTGRES_PASSWORD: shopops_password
@@ -58,7 +59,7 @@ services:
   mongo:
     image: mongo:7
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     environment:
       MONGO_INITDB_DATABASE: grozia_traces
     volumes:
